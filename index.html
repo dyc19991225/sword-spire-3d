@@ -9,6 +9,12 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="theme-color" content="#070a14" />
     <title>斩妖录：剑匣问天 · 国风重彩插画版</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Noto+Serif+SC:wght@500;700;900&display=swap"
+      rel="stylesheet"
+    />
   </head>
   <body>
     <!-- 2.5D Multi-Layer Illustrated Xianxia Stage -->
@@ -20,53 +26,79 @@
       <canvas id="fx-canvas"></canvas>
     </div>
 
-    <!-- Persistent Top Immortal Status Bar -->
+    <!-- Persistent Top Immortal Eave Status Bar -->
     <header id="top-bar" class="hidden">
       <div class="top-left">
         <span id="top-hero-name" class="gold-title">凌霄 · 蜀山剑修</span>
         <span id="top-floor-badge" class="pill-tag">第一重天 · 1/15 劫</span>
-        <span id="top-hp" class="stat-chip hp">❤️ 80/80</span>
-        <span id="top-gold" class="stat-chip gold">💰 99 灵石</span>
+        <div class="top-hp-pill">
+          <div id="top-hp-bar" class="top-hp-bar"></div>
+          <span id="top-hp" class="top-hp-text">80 / 80</span>
+        </div>
+        <span id="top-gold" class="stat-chip gold">99 灵石</span>
       </div>
       <div id="relic-strip" class="relic-strip"></div>
       <div class="top-right">
-        <button id="btn-open-deck" class="hud-btn" title="查看牌库 [D]">📜 牌库 (<span id="deck-count">10</span>)</button>
-        <button id="btn-Audio-mute" class="hud-btn" title="静音开关 [M]">🎵</button>
-        <button id="btn-give-up" class="hud-btn subtle" title="重返仙门">重开</button>
+        <button id="btn-open-deck" class="hud-btn" title="查看本命牌库 [D]">
+          <span>牌库</span>
+          <strong id="deck-count">10</strong>
+        </button>
+        <button id="btn-Audio-mute" class="hud-btn icon-only" title="古乐开关 [M]">古乐</button>
+        <button id="btn-give-up" class="hud-btn subtle" title="兵解重修">重修</button>
       </div>
     </header>
 
-    <!-- Toast Notification Banner -->
+    <!-- Toast Notification Plaque -->
     <div id="toast-banner" class="toast-banner hidden"></div>
 
-    <!-- Combat Overlay: Actor Plates, Intents, Sword Box & Gilded Illustrated Hand -->
+    <!-- Combat Overlay: Actor Plates, Intents, Sword Casket & Gilded Illustrated Hand -->
     <section id="combat-ui" class="hidden">
       <div id="actor-overlays"></div>
 
-      <!-- Floating Sword Box & Five-Element Formation Guide -->
+      <!-- Engraved Floating Sword Casket Compass -->
       <aside id="sword-box-panel">
+        <span class="guofeng-corner tl"></span>
+        <span class="guofeng-corner br"></span>
         <div class="sb-header">
-          <span>🗡️ 悬空剑匣 (<span id="sb-count">0/5</span>)</span>
-          <span class="sb-sub">满槽出鞘 · 双系共鸣结阵</span>
+          <span class="sb-title-txt">悬空剑匣 · <em id="sb-count">0/5</em></span>
+          <span class="sb-sub">满槽出鞘 · 双系结阵</span>
         </div>
         <div id="sb-slots" class="sb-slots"></div>
         <div class="sb-recipes">
-          <span>🔥+⚡雷火破绽</span>
-          <span>❄️+⚔️冰金凝罡</span>
-          <span>🌿+🔥木火回灵</span>
-          <span>⚡+❄️雷冰虚弱</span>
+          <span class="rec-tag fire">火+雷 · 天劫破绽</span>
+          <span class="rec-tag ice">冰+金 · 玄罡剑芒</span>
+          <span class="rec-tag wood">木+火 · 生火回灵</span>
+          <span class="rec-tag thunder">雷+冰 · 青霜虚弱</span>
         </div>
       </aside>
 
-      <!-- Bottom Qi Orb, Pile Counters, Illustrated Hand & End Turn -->
+      <!-- Bottom Dantian Qi Core, Pile Scrolls, Illustrated Hand & Seal End-Turn -->
       <div class="combat-bottom">
         <div class="pile-col left">
-          <div id="qi-orb" class="qi-orb" title="当前灵力 / 每回合上限">
+          <div id="qi-orb" class="qi-orb" title="丹田灵力 / 每回合上限">
+            <svg class="qi-ring-svg" viewBox="0 0 100 100">
+              <polygon
+                points="50,3 83,17 97,50 83,83 50,97 17,83 3,50 17,17"
+                fill="none"
+                stroke="rgba(253,230,138,0.55)"
+                stroke-width="1.6"
+              />
+              <circle
+                cx="50"
+                cy="50"
+                r="41"
+                fill="none"
+                stroke="rgba(94,234,212,0.5)"
+                stroke-width="1.5"
+                stroke-dasharray="8 6"
+              />
+            </svg>
             <span id="qi-text">3/3</span>
-            <small>灵力</small>
+            <small>丹田灵力</small>
           </div>
           <button id="btn-draw-pile" class="pile-btn" title="点击查看抽牌堆">
-            🎴 抽牌 <strong id="draw-count">5</strong>
+            <span>剑匣待抽</span>
+            <strong id="draw-count">5</strong>
           </button>
         </div>
 
@@ -74,15 +106,20 @@
 
         <div class="pile-col right">
           <button id="btn-end-turn" class="end-turn-btn">
-            <span>结束回合</span>
-            <small>[E / Space]</small>
+            <span class="seal-stamp">结印</span>
+            <div class="et-copy">
+              <span>结束回合</span>
+              <small>SPACE / E</small>
+            </div>
           </button>
           <div class="discard-row">
             <button id="btn-discard-pile" class="pile-btn" title="点击查看弃牌堆">
-              ♻️ 弃牌 <strong id="discard-count">0</strong>
+              <span>归鞘</span>
+              <strong id="discard-count">0</strong>
             </button>
-            <button id="btn-exhaust-pile" class="pile-btn subtle" title="本战已消耗牌">
-              🔥 消耗 <strong id="exhaust-count">0</strong>
+            <button id="btn-exhaust-pile" class="pile-btn subtle" title="本战已消耗禁术">
+              <span>焚毁</span>
+              <strong id="exhaust-count">0</strong>
             </button>
           </div>
         </div>
@@ -91,34 +128,56 @@
 
     <!-- 1. Title Screen: Choose Immortal Lineage -->
     <section id="title-screen" class="screen-modal">
-      <div class="modal-card wide">
-        <div class="realm-eyebrow">DARK-GOLD XIANXIA DECKBUILDER · 暗黑鎏金国风杀戮尖塔</div>
-        <h1 class="main-logo">斩妖录：剑匣问天</h1>
-        <p class="subtitle">
-          悬空五灵剑匣 · 双系自动结阵 · 洞府淬剑删牌 · 三重天十五劫登仙路
-        </p>
+      <div class="modal-card wide guofeng-plaque">
+        <span class="guofeng-corner tl"></span>
+        <span class="guofeng-corner tr"></span>
+        <span class="guofeng-corner bl"></span>
+        <span class="guofeng-corner br"></span>
+
+        <div class="title-header-block">
+          <div class="realm-eyebrow">
+            <span class="orn-line"></span>
+            <span>太古剑冢 · 肉鸽问天录</span>
+            <span class="orn-line"></span>
+          </div>
+          <div class="logo-row">
+            <h1 class="main-logo">斩妖录 · 剑匣问天</h1>
+            <span class="cinnabar-seal">问道</span>
+          </div>
+          <p class="subtitle">
+            悬空五灵飞剑 · 双系共鸣结阵 · 洞府淬剑洗髓 · 三重天十五劫登仙路
+          </p>
+        </div>
+
         <div id="hero-grid" class="hero-grid"></div>
+
         <div class="title-actions">
-          <button id="btn-start-run" class="primary-cta">⚔️ 御剑入劫 · 踏入第一重天 [Space]</button>
+          <button id="btn-start-run" class="imperial-cta">
+            <span class="cta-inner">御剑入劫 · 踏破第一重天 <small>[Space]</small></span>
+          </button>
         </div>
       </div>
     </section>
 
     <!-- 2. Branching 15-Floor Spire Star-Map -->
     <section id="map-screen" class="screen-modal hidden">
-      <div class="modal-card map-box">
+      <div class="modal-card wide guofeng-plaque map-box">
+        <span class="guofeng-corner tl"></span>
+        <span class="guofeng-corner tr"></span>
+        <span class="guofeng-corner bl"></span>
+        <span class="guofeng-corner br"></span>
         <div class="modal-head">
           <div>
-            <span class="realm-eyebrow" id="map-realm-tag">第一重天 · 锁妖残殿</span>
-            <h2>🗺️ 三界登仙星图 · 选择下一处历练节点</h2>
+            <div class="realm-eyebrow left"><span id="map-realm-tag">第一重天 · 锁妖残殿</span></div>
+            <h2>天机登仙卷轴 · 择路历劫</h2>
           </div>
           <div class="map-legend">
-            <span>⚔️群妖</span>
-            <span>👹凶煞妖王(掉法宝)</span>
-            <span>🔥丹炉(回血/升牌+)</span>
-            <span>🏮仙坊(买宝/删牌)</span>
-            <span>☯️奇遇</span>
-            <span>☠️镇界魔尊</span>
+            <span class="lg-item"><i>剑</i> 群妖拦路</span>
+            <span class="lg-item elite"><i>煞</i> 凶煞妖王(掉法宝)</span>
+            <span class="lg-item rest"><i>炉</i> 洞府丹炉(回血/淬炼+)</span>
+            <span class="lg-item shop"><i>坊</i> 云游仙坊(购宝/删牌)</span>
+            <span class="lg-item event"><i>缘</i> 秘境奇遇</span>
+            <span class="lg-item boss"><i>尊</i> 镇界魔尊</span>
           </div>
         </div>
         <div id="map-scroll" class="map-scroll">
@@ -130,30 +189,44 @@
 
     <!-- 3. Post-Combat Card Draft & Spoils -->
     <section id="reward-screen" class="screen-modal hidden">
-      <div class="modal-card wide">
-        <div class="realm-eyebrow">VICTORY SPOILS · 斩妖夺宝</div>
-        <h2>✨ 妖氛涤荡 · 择一剑诀纳入牌库</h2>
+      <div class="modal-card wide guofeng-plaque">
+        <span class="guofeng-corner tl"></span>
+        <span class="guofeng-corner tr"></span>
+        <span class="guofeng-corner bl"></span>
+        <span class="guofeng-corner br"></span>
+        <div class="realm-eyebrow">
+          <span class="orn-line"></span><span>妖氛涤荡 · 斩获仙缘</span><span class="orn-line"></span>
+        </div>
+        <h2 class="brush-h2">择一门剑诀纳入本命牌库</h2>
         <div id="reward-summary" class="reward-summary"></div>
         <div id="reward-cards" class="draft-grid"></div>
         <div class="modal-foot">
-          <button id="btn-skip-reward" class="secondary-btn">🌊 略过选牌 · 保持精简牌库 (+15 灵石)</button>
+          <button id="btn-skip-reward" class="secondary-btn">不染尘俗 · 略过选牌精简道基 (+15 灵石)</button>
         </div>
       </div>
     </section>
 
     <!-- 4. Immortal Cave Rest / Sword Forge -->
     <section id="rest-screen" class="screen-modal hidden">
-      <div class="modal-card wide">
-        <div class="realm-eyebrow">IMMORTAL FURNACE · 洞府丹炉</div>
-        <h2>🔥 灵脉洞府 · 调息或淬剑升阶</h2>
+      <div class="modal-card wide guofeng-plaque">
+        <span class="guofeng-corner tl"></span>
+        <span class="guofeng-corner tr"></span>
+        <span class="guofeng-corner bl"></span>
+        <span class="guofeng-corner br"></span>
+        <div class="realm-eyebrow">
+          <span class="orn-line"></span><span>灵脉洞府 · 阴阳丹炉</span><span class="orn-line"></span>
+        </div>
+        <h2 class="brush-h2">吐纳调息 或 剑炉淬炼升阶</h2>
         <div class="rest-actions">
           <button id="btn-rest-heal" class="rest-choice-card">
-            <div class="rc-icon">🧘</div>
-            <div class="rc-title">打坐吐纳 · 固本培元</div>
-            <div class="rc-desc" id="rest-heal-desc">立即回复 35% 最大气血 (+28 HP)</div>
+            <span class="cinnabar-seal">调息</span>
+            <div class="rc-copy">
+              <div class="rc-title">打坐吐纳 · 固本培元</div>
+              <div class="rc-desc" id="rest-heal-desc">立即回复 35% 最大气血</div>
+            </div>
           </button>
           <div class="rest-forge-note">
-            <strong>⚒️ 或者点击下方任意未升阶卡牌，直接淬炼进化为【+】极品剑诀：</strong>
+            —— 或点选下方任意本命剑诀投入地火，永久淬炼升阶为【<strong>极品 +</strong>】 ——
           </div>
         </div>
         <div id="forge-grid" class="deck-grid"></div>
@@ -162,18 +235,24 @@
 
     <!-- 5. Cloud Merchant Shop -->
     <section id="shop-screen" class="screen-modal hidden">
-      <div class="modal-card wide">
+      <div class="modal-card wide guofeng-plaque">
+        <span class="guofeng-corner tl"></span>
+        <span class="guofeng-corner tr"></span>
+        <span class="guofeng-corner bl"></span>
+        <span class="guofeng-corner br"></span>
         <div class="modal-head">
           <div>
-            <span class="realm-eyebrow">CLOUD MERCHANT · 云游仙坊</span>
-            <h2>🏮 仙坊奇珍 · 购置法宝或洗髓删牌</h2>
+            <div class="realm-eyebrow left"><span>云游仙坊 · 奇珍异宝</span></div>
+            <h2>仙坊易市 · 购置法宝或洗髓删牌</h2>
           </div>
-          <button id="btn-leave-shop" class="primary-cta compact">继续登仙 ➜</button>
+          <button id="btn-leave-shop" class="imperial-cta compact">
+            <span class="cta-inner">辞别仙坊 ➜</span>
+          </button>
         </div>
         <div id="shop-services" class="shop-services"></div>
         <div id="shop-cards" class="draft-grid shop-grid"></div>
         <div id="shop-purge-wrap" class="hidden">
-          <h3 class="sub-heading">🌊 请点击要从牌库永久移除的冗杂卡牌：</h3>
+          <h3 class="sub-heading">请点选欲从道基中永久斩除的冗杂卡牌：</h3>
           <div id="shop-purge-grid" class="deck-grid"></div>
         </div>
       </div>
@@ -181,9 +260,15 @@
 
     <!-- 6. Mystery Xianxia Event -->
     <section id="event-screen" class="screen-modal hidden">
-      <div class="modal-card">
-        <div class="realm-eyebrow">MYSTERY ENCOUNTER · 秘境奇遇</div>
-        <h2 id="event-title">☯️ 太古残剑碑</h2>
+      <div class="modal-card guofeng-plaque">
+        <span class="guofeng-corner tl"></span>
+        <span class="guofeng-corner tr"></span>
+        <span class="guofeng-corner bl"></span>
+        <span class="guofeng-corner br"></span>
+        <div class="realm-eyebrow">
+          <span class="orn-line"></span><span>秘境机缘 · 因果抉择</span><span class="orn-line"></span>
+        </div>
+        <h2 id="event-title" class="brush-h2">太古残剑碑</h2>
         <p id="event-desc" class="event-desc"></p>
         <div id="event-choices" class="event-choices"></div>
       </div>
@@ -191,10 +276,14 @@
 
     <!-- 7. Deck / Pile Inspector Modal -->
     <section id="deck-modal" class="screen-modal hidden">
-      <div class="modal-card wide">
+      <div class="modal-card wide guofeng-plaque">
+        <span class="guofeng-corner tl"></span>
+        <span class="guofeng-corner tr"></span>
+        <span class="guofeng-corner bl"></span>
+        <span class="guofeng-corner br"></span>
         <div class="modal-head">
-          <h2 id="deck-modal-title">📜 牌库总览</h2>
-          <button id="btn-close-deck" class="secondary-btn">关闭 [Esc]</button>
+          <h2 id="deck-modal-title">本命牌库总览</h2>
+          <button id="btn-close-deck" class="secondary-btn">合上剑谱 [Esc]</button>
         </div>
         <div id="deck-modal-grid" class="deck-grid"></div>
       </div>
@@ -202,12 +291,18 @@
 
     <!-- 8. Run Victory / Gameover Result Modal -->
     <section id="result-screen" class="screen-modal hidden">
-      <div class="modal-card">
+      <div class="modal-card guofeng-plaque">
+        <span class="guofeng-corner tl"></span>
+        <span class="guofeng-corner tr"></span>
+        <span class="guofeng-corner bl"></span>
+        <span class="guofeng-corner br"></span>
         <div class="realm-eyebrow" id="result-eyebrow">IMMORTAL ASCENSION</div>
-        <h1 id="result-title" class="main-logo">剑破九霄 · 羽化登仙！</h1>
+        <h1 id="result-title" class="main-logo">剑破九霄 · 羽化登仙</h1>
         <div id="result-stats" class="result-stats"></div>
         <div class="title-actions">
-          <button id="btn-restart-run" class="primary-cta">🔄 再入轮回 · 开启新仙途</button>
+          <button id="btn-restart-run" class="imperial-cta">
+            <span class="cta-inner">再入轮回 · 重启仙途</span>
+          </button>
         </div>
       </div>
     </section>

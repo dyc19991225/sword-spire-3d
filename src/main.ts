@@ -15,6 +15,7 @@ import {
   type MapNode,
 } from './engine.ts';
 import { XianxiaAudio } from './audio.ts';
+import { XIANXIA_ICONS, renderFrameCorners } from './icons.ts';
 
 interface StandeeActor {
   uid: number;
@@ -121,12 +122,24 @@ class SwordSpireIllustratedApp {
 
     this.initMotes();
     this.stageBg.style.backgroundImage = `url('./art/bg_realm1.webp')`;
+    this.hydrateStaticIcons();
     this.setupHeroStandee();
     this.bindUiEvents();
     this.renderTitleHeroes();
     this.onResize();
 
     requestAnimationFrame((ts) => this.tick(ts));
+  }
+
+  private hydrateStaticIcons(): void {
+    document.getElementById('btn-open-deck')!.innerHTML =
+      `${XIANXIA_ICONS.scroll}<span>剑谱</span><strong id="deck-count">10</strong>`;
+    document.getElementById('btn-Audio-mute')!.innerHTML =
+      `${XIANXIA_ICONS.chime}<span>古乐</span>`;
+    const startInner = document.querySelector('#btn-start-run .cta-inner');
+    if (startInner) {
+      startInner.innerHTML = `${XIANXIA_ICONS.swords}<span>御剑入劫 · 踏破第一重天</span><small>[Space]</small>`;
+    }
   }
 
   private initMotes(): void {
@@ -441,8 +454,12 @@ class SwordSpireIllustratedApp {
     const realmNames = ['第一重天·锁妖殿', '第二重天·幽冥冢', '第三重天·九霄坛'];
     const rIdx = Math.min(2, Math.floor(Math.max(0, this.engine.currentRow) / 5));
     document.getElementById('top-floor-badge')!.textContent = `${realmNames[rIdx]} · ${fl}/15 劫`;
-    document.getElementById('top-hp')!.textContent = `❤️ ${this.engine.hp}/${this.engine.maxHp}`;
-    document.getElementById('top-gold')!.textContent = `💰 ${this.engine.gold} 灵石`;
+    const hpPct = Math.max(0, Math.min(100, (this.engine.hp / this.engine.maxHp) * 100));
+    document.getElementById('top-hp-bar')!.style.width = `${hpPct.toFixed(1)}%`;
+    document.getElementById('top-hp')!.innerHTML =
+      `${XIANXIA_ICONS.bloodLotus}<span>${this.engine.hp}/${this.engine.maxHp}</span>`;
+    document.getElementById('top-gold')!.innerHTML =
+      `${XIANXIA_ICONS.coin}<span>${this.engine.gold} 灵石</span>`;
     document.getElementById('deck-count')!.textContent = String(this.engine.masterDeck.length);
 
     document.getElementById('relic-strip')!.innerHTML = this.engine.relics
@@ -457,17 +474,34 @@ class SwordSpireIllustratedApp {
   }
 
   private renderTitleHeroes(): void {
+    const sectSeals = ['剑宗', '符宗', '体宗'];
+    const glowColors = [
+      'rgba(229, 169, 60, 0.28)',
+      'rgba(168, 85, 247, 0.28)',
+      'rgba(225, 29, 72, 0.28)',
+    ];
     const grid = document.getElementById('hero-grid')!;
     grid.innerHTML = HEROES.map((h, idx) => {
       const rel = RELICS[h.starterRelic];
       return `<div class="hero-card ${idx === this.selectedHeroIdx ? 'selected' : ''}" data-idx="${idx}">
-        <div class="hero-art-banner">
-          <img src="${h.standee}" alt="${h.name}" />
+        ${renderFrameCorners()}
+        <div class="hero-art-banner" style="--hero-glow:${glowColors[idx]};">
+          ${XIANXIA_ICONS.baguaWatermark}
+          <span class="hero-sect-seal">${sectSeals[idx]}</span>
+          <span class="hero-hp-tag">${XIANXIA_ICONS.bloodLotus} 气血 ${h.maxHp}</span>
+          <img class="hero-standee-preview" src="${h.standee}" alt="${h.name}" />
         </div>
-        <div class="hero-name">${h.name}</div>
-        <div class="hero-sub">${h.title} · ❤️ ${h.maxHp}</div>
+        <div class="hero-title-row">
+          <span class="hero-name">${h.name}</span>
+          <span class="hero-sub">${h.title}</span>
+        </div>
         <div class="hero-desc">${h.desc}</div>
-        <div class="hero-relic">🔮 本命法宝【${rel.name}】：${rel.desc}</div>
+        <div class="hero-relic">
+          <img src="${rel.icon}" alt="${rel.name}" />
+          <div class="hero-relic-txt">
+            <strong>本命【${rel.name}】</strong><br/>${rel.desc}
+          </div>
+        </div>
       </div>`;
     }).join('');
 
@@ -528,13 +562,13 @@ class SwordSpireIllustratedApp {
     }
     svg.innerHTML = lines.join('');
 
-    const labelMap: Record<MapNode['kind'], string> = {
-      battle: '⚔️ 群妖拦路',
-      elite: '👹 凶煞妖王',
-      rest: '🔥 洞府丹炉',
-      shop: '🏮 云游仙坊',
-      event: '☯️ 秘境奇遇',
-      boss: '☠️ 镇界魔尊',
+    const labelMap: Record<MapNode['kind'], { seal: string; name: string }> = {
+      battle: { seal: '剑', name: '群妖拦路' },
+      elite: { seal: '煞', name: '凶煞妖王' },
+      rest: { seal: '炉', name: '洞府丹炉' },
+      shop: { seal: '坊', name: '云游仙坊' },
+      event: { seal: '缘', name: '秘境奇遇' },
+      boss: { seal: '尊', name: '镇界魔尊' },
     };
 
     nodesWrap.innerHTML = this.engine.mapRows
@@ -542,10 +576,12 @@ class SwordSpireIllustratedApp {
       .map((n) => {
         const p = posOf(n);
         const avail = selectable.has(n.id);
+        const info = labelMap[n.kind];
         return `<button class="map-node ${n.cleared ? 'cleared' : ''} ${
           avail ? 'available' : ''
         }" data-nid="${n.id}" style="left:${p.xPct}%; top:${p.y}px;">
-          ${n.row + 1}劫 · ${labelMap[n.kind]}
+          <span class="mn-seal">【${info.seal}】</span>
+          <span>第${n.row + 1}劫 · ${info.name}</span>
         </button>`;
       })
       .join('');
@@ -645,7 +681,7 @@ class SwordSpireIllustratedApp {
           this.processEngineVisualEvents();
           this.syncAllUi();
         } else {
-          this.showToast('⚠️ 灵力不足，无法催动此剑诀！');
+          this.showToast('丹田灵力不足，尚难催动此剑诀');
         }
       });
     });
@@ -661,7 +697,7 @@ class SwordSpireIllustratedApp {
     const cost = this.engine.getCardCost(card);
     const title = this.engine.getCardTitle(card);
     const typeLabel =
-      def.type === 'attack' ? '⚔️ 剑诀 · 攻' : def.type === 'skill' ? '🛡️ 身法 · 术' : '☯️ 心法 · 永续';
+      def.type === 'attack' ? '剑诀 · 攻伐' : def.type === 'skill' ? '身法 · 玄术' : '心法 · 永续';
 
     let desc = this.engine.getCardDesc(card);
     if (this.engine.runPhase === 'combat') {
@@ -687,7 +723,7 @@ class SwordSpireIllustratedApp {
       <div class="holo-card type-${def.type} ${card.upgraded ? 'upgraded' : ''} ${unplayableClass}"
            data-uid="${card.uid}" style="${opts.fanStyle || ''}">
         <div class="hc-top">
-          <span class="hc-cost">${cost}</span>
+          <span class="hc-cost"><b>${cost}</b></span>
           <span class="hc-title">${title}</span>
         </div>
         ${opts.hotkey ? `<span class="hc-key">[${opts.hotkey}]</span>` : ''}
@@ -696,7 +732,7 @@ class SwordSpireIllustratedApp {
         </div>
         <div class="hc-type-tag">${typeLabel}</div>
         <div class="hc-desc"><span>${desc}</span></div>
-        ${opts.price !== undefined ? `<div class="price-tag">💰 ${opts.price} 灵石</div>` : ''}
+        ${opts.price !== undefined ? `<div class="price-tag">${XIANXIA_ICONS.coin} ${opts.price} 灵石</div>` : ''}
       </div>`;
   }
 
@@ -721,13 +757,14 @@ class SwordSpireIllustratedApp {
   private updateActorPlatesContent(): void {
     const hpPct = Math.max(0, (this.engine.hp / this.engine.maxHp) * 100);
     const hTags: string[] = [];
-    if (this.engine.block > 0) hTags.push(`<span class="st-tag blk">🛡️罡气 ${this.engine.block}</span>`);
-    if (this.engine.strength > 0) hTags.push(`<span class="st-tag buff">⚔️剑意 +${this.engine.strength}</span>`);
-    if (this.engine.dexterity > 0) hTags.push(`<span class="st-tag buff">🍃身法 +${this.engine.dexterity}</span>`);
-    if (this.engine.thorns > 0) hTags.push(`<span class="st-tag buff">⚡剑棘 ${this.engine.thorns}</span>`);
+    if (this.engine.block > 0) hTags.push(`<span class="st-tag blk">罡气 ${this.engine.block}</span>`);
+    if (this.engine.strength > 0) hTags.push(`<span class="st-tag buff">剑意 +${this.engine.strength}</span>`);
+    if (this.engine.dexterity > 0) hTags.push(`<span class="st-tag buff">身法 +${this.engine.dexterity}</span>`);
+    if (this.engine.thorns > 0) hTags.push(`<span class="st-tag buff">剑棘 ${this.engine.thorns}</span>`);
     if (this.engine.vuln > 0) hTags.push(`<span class="st-tag vuln">破绽 ${this.engine.vuln}</span>`);
     if (this.engine.weak > 0) hTags.push(`<span class="st-tag weak">虚弱 ${this.engine.weak}</span>`);
 
+    this.heroStandee.imgEl.alt = this.engine.hero.name;
     this.heroStandee.plateEl.innerHTML = `
       <div class="plate-box">
         <div class="plate-name">${this.engine.hero.name.split(' · ')[0]}</div>
@@ -752,24 +789,24 @@ class SwordSpireIllustratedApp {
       actor.wrapEl.classList.toggle('selected', isSel);
 
       const mv = e.intent;
-      let intentIcon = '🔮';
+      let intentIcon = XIANXIA_ICONS.taiji;
       let intentTxt = mv.intentName;
       let pillClass = 'def';
       if (mv.dmg) {
         const realD = this.engine.previewEnemyAttackDamage(e);
         const hits = mv.hits || 1;
-        intentIcon = mv.kind === 'nuke' ? '☄️' : '🗡️';
+        intentIcon = mv.kind === 'nuke' ? XIANXIA_ICONS.flame : XIANXIA_ICONS.singleSword;
         intentTxt = hits > 1 ? `${realD}×${hits}` : `${realD}`;
-        if (mv.block) intentTxt += ` + 🛡️${mv.block}`;
+        if (mv.block) intentTxt += ` · 罡${mv.block}`;
         pillClass = mv.kind === 'nuke' ? 'nuke' : '';
       } else if (mv.block) {
-        intentIcon = '🛡️';
-        intentTxt = `${mv.block}${mv.strength ? ` + 魔威+${mv.strength}` : ''}`;
+        intentIcon = XIANXIA_ICONS.shield;
+        intentTxt = `${mv.block}${mv.strength ? ` · 威+${mv.strength}` : ''}`;
       }
 
       const eTags: string[] = [];
-      if (e.block > 0) eTags.push(`<span class="st-tag blk">🛡️${e.block}</span>`);
-      if (e.burn > 0) eTags.push(`<span class="st-tag burn">🔥丹火 ${e.burn}</span>`);
+      if (e.block > 0) eTags.push(`<span class="st-tag blk">罡 ${e.block}</span>`);
+      if (e.burn > 0) eTags.push(`<span class="st-tag burn">丹火 ${e.burn}</span>`);
       if (e.vuln > 0) eTags.push(`<span class="st-tag vuln">破绽 ${e.vuln}</span>`);
       if (e.weak > 0) eTags.push(`<span class="st-tag weak">虚弱 ${e.weak}</span>`);
       if (e.strength > 0) eTags.push(`<span class="st-tag buff">魔威 +${e.strength}</span>`);
@@ -777,7 +814,7 @@ class SwordSpireIllustratedApp {
       const ePct = Math.max(0, (e.hp / e.maxHp) * 100);
       actor.plateEl.innerHTML = `
         <div class="intent-pill ${pillClass}" title="下回合意图：${mv.intentName}">
-          <span>${intentIcon}</span>
+          ${intentIcon}
           <span>${intentTxt}</span>
         </div>
         <div class="plate-box">
@@ -795,8 +832,12 @@ class SwordSpireIllustratedApp {
     this.audio.playVictoryFanfare();
     const rel = this.engine.rewardRelicId ? RELICS[this.engine.rewardRelicId] : null;
     document.getElementById('reward-summary')!.innerHTML = `
-      <span>💰 已缴获 +${this.engine.rewardGold} 灵石</span>
-      ${rel ? `<span>🔮 获得秘境法宝【${rel.name}】：${rel.desc}</span>` : ''}
+      <span class="rw-pill">${XIANXIA_ICONS.coin}<span>缴获灵石 +${this.engine.rewardGold}</span></span>
+      ${
+        rel
+          ? `<span class="rw-pill relic"><img src="${rel.icon}" width="22" height="22" alt="${rel.name}" /><span>秘境法宝【${rel.name}】：${rel.desc}</span></span>`
+          : ''
+      }
     `;
     const grid = document.getElementById('reward-cards')!;
     grid.innerHTML = this.engine.rewardCards
@@ -816,7 +857,7 @@ class SwordSpireIllustratedApp {
   private renderRestScreen(): void {
     const healAmt = Math.max(15, Math.round(this.engine.maxHp * 0.35));
     document.getElementById('rest-heal-desc')!.textContent =
-      `立即回复 35% 最大气血 (+${healAmt} HP · 当前 ${this.engine.hp}/${this.engine.maxHp})`;
+      `立即回复 35% 最大气血 (+${healAmt} 气血 · 当前 ${this.engine.hp}/${this.engine.maxHp})`;
 
     const candidates = this.engine.masterDeck.filter((c) => !c.upgraded);
     const grid = document.getElementById('forge-grid')!;
@@ -831,7 +872,7 @@ class SwordSpireIllustratedApp {
         const uid = Number(htmlEl.dataset.uid);
         if (this.engine.restForgeCard(uid)) {
           this.audio.playFormationAwaken();
-          this.showToast('🔥 剑炉淬炼成功！卡牌已永久升阶为【+】！');
+          this.showToast('地火淬剑大成 · 剑诀已永久升阶为【极品 +】');
           this.syncAllUi();
         }
       });
@@ -851,21 +892,26 @@ class SwordSpireIllustratedApp {
               shop.relic.sold || this.engine.gold < shop.relic.price ? 'disabled' : ''
             }>
               <img src="${rel.icon}" width="26" height="26" alt="${rel.name}" />
-              <span>${shop.relic.sold ? '已购法宝' : `购置【${rel.name}】💰${shop.relic.price}`}</span>
+              <span>${shop.relic.sold ? '已购法宝' : `购置【${rel.name}】`}</span>
+              ${shop.relic.sold ? '' : `<em class="svc-cost">${XIANXIA_ICONS.coin}${shop.relic.price}</em>`}
             </button>`
           : ''
       }
       <button id="btn-buy-heal" class="shop-svc-btn" ${
         shop.healUsed || this.engine.gold < shop.healPrice ? 'disabled' : ''
       }>
-        🍵 灵丹回春 (+30%气血) 💰${shop.healPrice}
+        ${XIANXIA_ICONS.furnace}
+        <span>${shop.healUsed ? '已服灵丹' : '九转灵丹 (+30%气血)'}</span>
+        ${shop.healUsed ? '' : `<em class="svc-cost">${XIANXIA_ICONS.coin}${shop.healPrice}</em>`}
       </button>
       <button id="btn-toggle-purge" class="shop-svc-btn" ${
         shop.removeUsed || this.engine.gold < shop.removePrice || this.engine.masterDeck.length <= 5
           ? 'disabled'
           : ''
       }>
-        🌊 ${shop.removeUsed ? '已洗髓删牌' : `洗髓忘尘 (删1张牌) 💰${shop.removePrice}`}
+        ${XIANXIA_ICONS.taiji}
+        <span>${shop.removeUsed ? '已洗髓忘尘' : '洗髓忘尘 (删1张牌)'}</span>
+        ${shop.removeUsed ? '' : `<em class="svc-cost">${XIANXIA_ICONS.coin}${shop.removePrice}</em>`}
       </button>
     `;
 
@@ -894,7 +940,7 @@ class SwordSpireIllustratedApp {
           if (this.engine.buyShopRemoveCard(uid)) {
             this.audio.playSwordSlash(true);
             wrap.classList.add('hidden');
-            this.showToast('🌊 道心澄明！已从牌库永久删去该牌！');
+            this.showToast('道心澄明 · 已从本命剑谱永久斩除该牌');
             this.renderShopScreen();
             this.refreshTopBar();
           }
@@ -924,7 +970,7 @@ class SwordSpireIllustratedApp {
           this.renderShopScreen();
           this.refreshTopBar();
         } else {
-          this.showToast('💰 灵石不足！');
+          this.showToast('囊中灵石不足，尚难易物');
         }
       });
     });
@@ -965,15 +1011,15 @@ class SwordSpireIllustratedApp {
   private renderResultScreen(victory: boolean): void {
     if (victory) this.audio.playVictoryFanfare();
     document.getElementById('result-eyebrow')!.textContent = victory
-      ? 'IMMORTAL ASCENSION · 三界荡平'
-      : 'SOUL SHATTERED · 兵解重修';
+      ? '九天玄诏 · 三界荡平'
+      : '元神兵解 · 轮回重修';
     document.getElementById('result-title')!.textContent = victory
-      ? '✨ 剑破九霄 · 羽化登仙！'
-      : '💀 道消身陨 · 剑断锁仙台';
+      ? '剑破九霄 · 羽化登仙'
+      : '道消身陨 · 剑断锁仙台';
     document.getElementById('result-stats')!.innerHTML = `
       <div>所选道统：<strong>${this.engine.hero.name}</strong></div>
       <div>抵达劫数：<strong>第 ${Math.max(1, this.engine.currentRow + 1)} / 15 劫</strong></div>
-      <div>最终牌库：<strong>${this.engine.masterDeck.length} 张剑诀 (${
+      <div>最终剑谱：<strong>${this.engine.masterDeck.length} 张剑诀 (${
         this.engine.masterDeck.filter((c) => c.upgraded).length
       } 张已淬炼+)</strong></div>
       <div>执掌法宝：<strong>${this.engine.relics.map((r) => RELICS[r].name).join(' · ')}</strong></div>
@@ -1017,7 +1063,7 @@ class SwordSpireIllustratedApp {
     document.getElementById('btn-rest-heal')!.addEventListener('click', () => {
       this.audio.playJadeShield();
       this.engine.restMeditate();
-      this.showToast('🧘 打坐调息完毕，气血充盈！');
+      this.showToast('打坐吐纳完毕 · 周天灵脉充盈');
       this.syncAllUi();
     });
 
@@ -1027,26 +1073,31 @@ class SwordSpireIllustratedApp {
     });
 
     document.getElementById('btn-open-deck')!.addEventListener('click', () => {
-      this.openDeckInspector('📜 本命牌库总览', this.engine.masterDeck);
+      this.openDeckInspector('本命剑谱总览', this.engine.masterDeck);
     });
     document.getElementById('btn-draw-pile')!.addEventListener('click', () => {
       const copy = [...this.engine.drawPile].sort((a, b) => a.defId.localeCompare(b.defId));
-      this.openDeckInspector('🎴 当前抽牌堆 (顺序已打乱展示)', copy);
+      this.openDeckInspector('剑匣待抽牌堆 (乱序展示)', copy);
     });
     document.getElementById('btn-discard-pile')!.addEventListener('click', () => {
-      this.openDeckInspector('♻️ 当前弃牌堆', this.engine.discardPile);
+      this.openDeckInspector('归鞘弃牌堆', this.engine.discardPile);
     });
     document.getElementById('btn-exhaust-pile')!.addEventListener('click', () => {
-      this.openDeckInspector('🔥 本战已消耗牌', this.engine.exhaustPile);
+      this.openDeckInspector('本战已焚禁术', this.engine.exhaustPile);
     });
     document.getElementById('btn-close-deck')!.addEventListener('click', () => {
       document.getElementById('deck-modal')!.classList.add('hidden');
     });
 
+    const syncMuteBtn = (muted: boolean) => {
+      document.getElementById('btn-Audio-mute')!.innerHTML = muted
+        ? `${XIANXIA_ICONS.mute}<span>静音</span>`
+        : `${XIANXIA_ICONS.chime}<span>古乐</span>`;
+    };
+
     document.getElementById('btn-Audio-mute')!.addEventListener('click', () => {
       this.audio.unlock();
-      const m = this.audio.toggleMute();
-      document.getElementById('btn-Audio-mute')!.textContent = m ? '🔇' : '🎵';
+      syncMuteBtn(this.audio.toggleMute());
     });
 
     document.getElementById('btn-give-up')!.addEventListener('click', () => {
@@ -1067,12 +1118,11 @@ class SwordSpireIllustratedApp {
         return;
       }
       if (e.code === 'KeyM') {
-        const m = this.audio.toggleMute();
-        document.getElementById('btn-Audio-mute')!.textContent = m ? '🔇' : '🎵';
+        syncMuteBtn(this.audio.toggleMute());
         return;
       }
       if (e.code === 'KeyD' && this.engine.runPhase !== 'title') {
-        this.openDeckInspector('📜 本命牌库总览', this.engine.masterDeck);
+        this.openDeckInspector('本命剑谱总览', this.engine.masterDeck);
         return;
       }
 
