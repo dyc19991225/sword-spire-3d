@@ -37,17 +37,81 @@ interface FlyingSwordStreak {
   x1: number;
   y1: number;
   color: string;
+  element: SwordElement;
+  delay: number;
   age: number;
   dur: number;
-  trail: { x: number; y: number }[];
+  scale: number;
+  heavy: boolean;
 }
 
-interface InkSlashArc {
+interface TaperedCrescentSlash {
   x: number;
   y: number;
   angle: number;
   radius: number;
+  thickness: number;
+  sweepRad: number;
   color: string;
+  delay: number;
+  age: number;
+  dur: number;
+  claw?: boolean;
+  inkDrops: { ang: number; dist: number; r: number }[];
+}
+
+interface LightningBoltVfx {
+  chains: { x: number; y: number }[][];
+  hitX: number;
+  hitY: number;
+  color: string;
+  delay: number;
+  age: number;
+  dur: number;
+}
+
+interface ImpactSpark {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  color: string;
+  size: number;
+  delay: number;
+  age: number;
+  dur: number;
+  kind: 'spark' | 'ember' | 'shard';
+}
+
+interface ShockwaveRing {
+  x: number;
+  y: number;
+  r0: number;
+  r1: number;
+  scaleY: number;
+  color: string;
+  bagua: boolean;
+  delay: number;
+  age: number;
+  dur: number;
+}
+
+interface CrossStarFlare {
+  x: number;
+  y: number;
+  size: number;
+  angle: number;
+  color: string;
+  delay: number;
+  age: number;
+  dur: number;
+}
+
+interface AfterimageGhost {
+  img: HTMLImageElement;
+  x: number;
+  y: number;
+  h: number;
   age: number;
   dur: number;
 }
@@ -99,7 +163,12 @@ class SwordSpireIllustratedApp {
   private enemyStandees: StandeeActor[] = [];
 
   private streaks: FlyingSwordStreak[] = [];
-  private slashes: InkSlashArc[] = [];
+  private slashes: TaperedCrescentSlash[] = [];
+  private bolts: LightningBoltVfx[] = [];
+  private sparks: ImpactSpark[] = [];
+  private rings: ShockwaveRing[] = [];
+  private flares: CrossStarFlare[] = [];
+  private ghosts: AfterimageGhost[] = [];
   private pillars: FormationPillarVfx[] = [];
   private popups: FloatingPopup[] = [];
   private motes: SpiritMote[] = [];
@@ -107,6 +176,7 @@ class SwordSpireIllustratedApp {
   private clockSec = 0;
   private lastTs = performance.now();
   private trauma = 0;
+  private hitstopTimer = 0;
   private toastTimer = 0;
   private hoveredCardEl: HTMLElement | null = null;
   private hoveredSingleTarget = false;
@@ -259,33 +329,194 @@ class SwordSpireIllustratedApp {
   }
 
   // =========================================================================
-  // Choreograph Visual Events onto Illustrated Standees & Ink-Gold Canvas!
+  // Choreograph Visual Events onto Illustrated Standees & 7-Channel Ink-Gold VFX!
   // =========================================================================
   private processEngineVisualEvents(): void {
     const events = this.engine.drainVisualEvents();
     const hPos = this.actorScreenCenter(this.heroStandee);
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+
+    const livingTargets = (): StandeeActor[] =>
+      this.enemyStandees.filter((_, idx) => {
+        const e = this.engine.enemies[idx];
+        return !!e; // Include enemies just slain by this exact card!
+      });
 
     for (const ev of events) {
       if (ev.kind === 'hero_slash') {
-        this.heroStandee.lungePx = 68;
-        this.audio.playSwordSlash(ev.heavy);
-        const target = this.enemyStandees[ev.targetIdx] || this.enemyStandees[0];
-        if (target) {
-          const tPos = this.actorScreenCenter(target);
-          const hexStr = `#${ev.colorHex.toString(16).padStart(6, '0')}`;
-          this.spawnSwordStreak(hPos.x + 30, hPos.y - 20, tPos.x, tPos.y, hexStr, 0.22);
-          this.slashes.push({
+        // Spawn translucent golden-jade afterimage before hero lunges!
+        this.ghosts.push({
+          img: this.heroStandee.imgEl,
+          x: (this.heroStandee.xPct / 100) * w,
+          y: (this.heroStandee.yPct / 100) * h,
+          h: this.heroStandee.imgEl.offsetHeight || 260,
+          age: 0,
+          dur: 0.28,
+        });
+        this.heroStandee.lungePx = ev.heavy ? 92 : 68;
+        this.audio.playSwordSlash(!!ev.heavy);
+
+        const hexStr = `#${ev.colorHex.toString(16).padStart(6, '0')}`;
+        const el: SwordElement = ev.element || 'metal';
+        const primaryTarget = this.enemyStandees[ev.targetIdx] || this.enemyStandees[0];
+
+        // 1) Ultimate Sword Rain: ★ 万剑归宗 (12 Heavenly Swords plunging from the clouds!)
+        if (ev.cardId === 'ten_thousand_swords') {
+          const targets = livingTargets();
+          for (let k = 0; k < 12; k++) {
+            const tgt = targets[k % Math.max(1, targets.length)] || primaryTarget;
+            if (!tgt) continue;
+            const tPos = this.actorScreenCenter(tgt);
+            const skyX = tPos.x - 220 + (k - 5.5) * 46;
+            const skyY = -60 - (k % 3) * 45;
+            const elemCycle: SwordElement[] = ['metal', 'fire', 'thunder', 'ice', 'metal'];
+            const sEl = elemCycle[k % elemCycle.length];
+            this.spawnSwordStreak(
+              skyX,
+              skyY,
+              tPos.x + (Math.random() - 0.5) * 44,
+              tPos.y + (Math.random() - 0.5) * 36,
+              SWORD_ELEMENTS[sEl].cssColor,
+              sEl,
+              0.22,
+              k * 0.042,
+              1.18,
+              k % 3 === 0
+            );
+          }
+        }
+        // 2) AoE Sweeping / Thunder Cleave (横扫千军 / 紫霄雷引)
+        else if (ev.isAoe) {
+          const targets = livingTargets();
+          if (el === 'thunder') {
+            targets.forEach((tgt, idx) => {
+              const tPos = this.actorScreenCenter(tgt);
+              this.spawnLightningBolt(tPos.x, tPos.y, '#c084fc', idx * 0.06);
+              this.spawnImpactBurst(tPos.x, tPos.y, '#c084fc', 'thunder', true, idx * 0.06);
+            });
+          } else {
+            // Giant Horizon-Splitting Crescent Wave across all enemies!
+            const midTgt = targets[Math.floor(targets.length / 2)] || primaryTarget;
+            if (midTgt) {
+              const mPos = this.actorScreenCenter(midTgt);
+              this.spawnCrescentSlash(mPos.x, mPos.y, -0.08, 235, 38, 1.18, hexStr, 0.38, 0);
+            }
+            targets.forEach((tgt, idx) => {
+              const tPos = this.actorScreenCenter(tgt);
+              this.spawnSwordStreak(
+                hPos.x + 36,
+                hPos.y - 18,
+                tPos.x,
+                tPos.y,
+                hexStr,
+                el,
+                0.2,
+                idx * 0.045,
+                1.08,
+                true
+              );
+            });
+          }
+        }
+        // 3) Golden Bell Mountain Slam (乾坤镇岳击)
+        else if (ev.cardId === 'shield_slam' && primaryTarget) {
+          const tPos = this.actorScreenCenter(primaryTarget);
+          this.pillars.push({ x: tPos.x, y: tPos.y + 105, color: '#fde047', age: 0, dur: 0.48 });
+          this.rings.push({
             x: tPos.x,
-            y: tPos.y,
-            angle: -0.55 + (Math.random() - 0.5) * 0.8,
-            radius: ev.heavy ? 135 : 95,
-            color: hexStr,
+            y: tPos.y + 85,
+            r0: 24,
+            r1: 210,
+            scaleY: 0.36,
+            color: '#fef08a',
+            bagua: true,
+            delay: 0.02,
             age: 0,
-            dur: 0.30,
+            dur: 0.52,
           });
+          this.spawnCrescentSlash(tPos.x, tPos.y, 0.72, 138, 36, 1.12, '#fde047', 0.36, 0);
+          this.spawnCrescentSlash(tPos.x, tPos.y, -0.72, 138, 36, 1.12, '#2dd4bf', 0.36, 0.05);
+          this.spawnImpactBurst(tPos.x, tPos.y, '#fef08a', 'metal', true, 0.03);
+        }
+        // 4) Single-Target & Multi-Hit Precision Sword Arts (御剑诀 / 双燕回风斩 / 九天玄刹剑 / 离火符剑 / 破军剑指)
+        else if (primaryTarget) {
+          const tPos = this.actorScreenCenter(primaryTarget);
+          const count = Math.max(1, ev.hits);
+          const angles = [-0.58, 0.62, -1.15, 0.18, 0.95];
+
+          for (let hit = 0; hit < count; hit++) {
+            const dly = hit * 0.075;
+            const sx = hPos.x + 24 + (hit % 2 === 0 ? -10 : 18);
+            const sy = hPos.y - 26 - (hit % 3) * 24;
+            const tx = tPos.x + (count > 1 ? (hit - (count - 1) * 0.5) * 18 : 0);
+            const ty = tPos.y + (count > 1 ? ((hit % 2) - 0.5) * 22 : 0);
+
+            this.spawnSwordStreak(
+              sx,
+              sy,
+              tx,
+              ty,
+              hexStr,
+              el,
+              ev.heavy ? 0.19 : 0.17,
+              dly,
+              ev.heavy ? 1.24 : 1.04,
+              !!ev.heavy
+            );
+
+            if (el === 'thunder') {
+              this.spawnLightningBolt(tx, ty, '#c084fc', dly + 0.12);
+            }
+
+            // Heavy Cleave (破军剑指 / 燃血狂斩) adds a brutal X-Cross twin crescent!
+            if (ev.heavy && count === 1) {
+              this.spawnCrescentSlash(tx, ty, -0.68, 148, 36, 1.16, hexStr, 0.36, 0.14);
+              this.spawnCrescentSlash(tx, ty, 0.68, 136, 30, 1.10, '#fef08a', 0.34, 0.20);
+            } else {
+              this.spawnCrescentSlash(
+                tx,
+                ty,
+                angles[hit % angles.length],
+                ev.heavy ? 132 : 106,
+                ev.heavy ? 30 : 23,
+                1.08,
+                hexStr,
+                0.31,
+                dly + 0.13
+              );
+            }
+          }
         }
       } else if (ev.kind === 'hero_cast') {
-        this.heroStandee.wobble = 0.18;
+        this.heroStandee.wobble = 0.2;
+        const hexStr = `#${ev.colorHex.toString(16).padStart(6, '0')}`;
+        this.rings.push({
+          x: hPos.x,
+          y: hPos.y + 82,
+          r0: 20,
+          r1: 138,
+          scaleY: 0.35,
+          color: hexStr,
+          bagua: true,
+          delay: 0,
+          age: 0,
+          dur: 0.46,
+        });
+        for (let k = 0; k < 12; k++) {
+          this.sparks.push({
+            x: hPos.x + (Math.random() - 0.5) * 70,
+            y: hPos.y + 40 + (Math.random() - 0.5) * 30,
+            vx: (Math.random() - 0.5) * 55,
+            vy: -130 - Math.random() * 120,
+            color: hexStr,
+            size: 3 + Math.random() * 3,
+            delay: 0,
+            age: 0,
+            dur: 0.52,
+            kind: ev.element === 'ice' ? 'shard' : 'ember',
+          });
+        }
       } else if (ev.kind === 'sword_fly') {
         this.audio.playElementalSword(ev.element, ev.isEvoke);
         const col = SWORD_ELEMENTS[ev.element].cssColor;
@@ -293,59 +524,122 @@ class SwordSpireIllustratedApp {
         if (ev.element !== 'ice' && ev.element !== 'wood' && target) {
           const tPos = this.actorScreenCenter(target);
           this.spawnSwordStreak(
-            hPos.x - 15,
-            hPos.y - 75,
+            hPos.x - 16,
+            hPos.y - 78,
             tPos.x,
             tPos.y,
             col,
-            ev.isEvoke ? 0.20 : 0.26
+            ev.element,
+            ev.isEvoke ? 0.18 : 0.23,
+            0,
+            ev.isEvoke ? 1.2 : 0.96,
+            ev.isEvoke
           );
-          this.slashes.push({
-            x: tPos.x,
-            y: tPos.y,
-            angle: Math.random() * Math.PI,
-            radius: ev.isEvoke ? 120 : 80,
+          if (ev.element === 'thunder') {
+            this.spawnLightningBolt(tPos.x, tPos.y, col, 0.14);
+          }
+          this.spawnCrescentSlash(
+            tPos.x,
+            tPos.y,
+            (Math.random() - 0.5) * 2.2,
+            ev.isEvoke ? 126 : 88,
+            ev.isEvoke ? 28 : 18,
+            1.02,
+            col,
+            0.28,
+            0.15
+          );
+        } else {
+          // Ice / Wood supportive sword pulse on Hero!
+          this.rings.push({
+            x: hPos.x,
+            y: hPos.y,
+            r0: 18,
+            r1: 120,
+            scaleY: 1,
             color: col,
+            bagua: true,
+            delay: 0,
             age: 0,
-            dur: 0.26,
+            dur: 0.42,
           });
         }
       } else if (ev.kind === 'formation') {
         this.audio.playFormationAwaken();
-        this.trauma = Math.min(1, this.trauma + 0.62);
+        this.trauma = Math.min(1, this.trauma + 0.68);
+        this.triggerHitstop(0.075);
         const hexStr = `#${ev.colorHex.toString(16).padStart(6, '0')}`;
-        for (const es of this.enemyStandees) {
-          const idx = this.enemyStandees.indexOf(es);
-          if (this.engine.enemies[idx]?.hp > 0) {
+        this.enemyStandees.forEach((es, idx) => {
+          if (this.engine.enemies[idx]) {
             const p = this.actorScreenCenter(es);
-            this.pillars.push({ x: p.x, y: p.y + 90, color: hexStr, age: 0, dur: 0.58 });
+            this.pillars.push({ x: p.x, y: p.y + 98, color: hexStr, age: 0, dur: 0.62 });
+            this.rings.push({
+              x: p.x,
+              y: p.y + 84,
+              r0: 20,
+              r1: 185,
+              scaleY: 0.36,
+              color: hexStr,
+              bagua: true,
+              delay: 0.03,
+              age: 0,
+              dur: 0.55,
+            });
+            this.spawnImpactBurst(p.x, p.y, hexStr, 'fire', true, 0.04);
           }
-        }
+        });
         this.showToast(`${ev.name} · 五行剑阵共鸣降世！`);
       } else if (ev.kind === 'damage_enemy') {
         const target = this.enemyStandees[ev.targetIdx];
         if (target) {
-          target.wobble = 0.22;
+          const isBig = ev.amount >= 10;
+          target.wobble = isBig ? 0.28 : 0.2;
           target.flashTimer = 0.11;
-          target.lungePx = 22;
-          this.trauma = Math.min(1, this.trauma + (ev.amount >= 12 ? 0.36 : 0.16));
+          target.lungePx = isBig ? 34 : 20;
+          this.trauma = Math.min(1, this.trauma + (isBig ? 0.42 : 0.18));
+          if (isBig) this.triggerHitstop(0.055);
+
           const p = this.actorScreenCenter(target);
+          const hexStr = `#${ev.colorHex.toString(16).padStart(6, '0')}`;
+          this.spawnImpactBurst(p.x, p.y, hexStr, 'metal', isBig, 0.08);
           if (ev.amount > 0) {
-            this.spawnPopup(p.x, p.y - 30, `-${ev.amount}`, '#fef08a', ev.amount >= 12);
+            this.spawnPopup(
+              p.x,
+              p.y - 34,
+              isBig ? `斩 -${ev.amount}` : `-${ev.amount}`,
+              isBig ? '#fde047' : '#fef08a',
+              isBig
+            );
           } else if (ev.blocked > 0) {
             this.spawnPopup(p.x, p.y - 30, `格挡 ${ev.blocked}`, '#93c5fd', false);
           }
         }
       } else if (ev.kind === 'damage_hero') {
-        this.heroStandee.wobble = 0.22;
+        this.heroStandee.wobble = 0.24;
         if (ev.amount > 0) {
-          this.heroStandee.flashTimer = 0.11;
+          this.heroStandee.flashTimer = 0.12;
+          this.heroStandee.lungePx = -26;
           this.audio.playEnemyHitHero();
-          this.trauma = Math.min(1, this.trauma + 0.42);
+          this.trauma = Math.min(1, this.trauma + 0.46);
+          this.triggerHitstop(0.05);
+          this.spawnImpactBurst(hPos.x, hPos.y, '#fb7185', 'fire', true, 0);
           this.spawnPopup(hPos.x, hPos.y - 35, `-${ev.amount}`, '#fb7185', true);
         } else if (ev.blocked > 0) {
           this.audio.playJadeShield();
-          this.spawnPopup(hPos.x, hPos.y - 35, `罡气抵御 ${ev.blocked}`, '#5eead4', false);
+          this.rings.push({
+            x: hPos.x + 28,
+            y: hPos.y,
+            r0: 24,
+            r1: 126,
+            scaleY: 1,
+            color: '#2dd4bf',
+            bagua: true,
+            delay: 0,
+            age: 0,
+            dur: 0.36,
+          });
+          this.spawnImpactBurst(hPos.x + 32, hPos.y, '#5eead4', 'ice', false, 0);
+          this.spawnPopup(hPos.x, hPos.y - 35, `罡气震碎 ${ev.blocked}`, '#5eead4', false);
         }
       } else if (ev.kind === 'block_hero') {
         this.audio.playJadeShield();
@@ -355,17 +649,25 @@ class SwordSpireIllustratedApp {
       } else if (ev.kind === 'enemy_act') {
         const actor = this.enemyStandees[ev.enemyIdx];
         if (actor) {
-          actor.lungePx = ev.attack ? -72 : -24;
+          actor.lungePx = ev.attack ? -82 : -26;
           if (ev.attack) {
-            this.slashes.push({
-              x: hPos.x,
-              y: hPos.y,
-              angle: 0.65,
-              radius: 105,
-              color: '#fb7185',
-              age: 0,
-              dur: 0.28,
-            });
+            // Triple Jagged Demon Claw Rend tearing across Hero!
+            for (let c = -1; c <= 1; c++) {
+              this.slashes.push({
+                x: hPos.x + c * 22,
+                y: hPos.y + c * 16,
+                angle: 2.35,
+                radius: 112,
+                thickness: 16,
+                sweepRad: 0.82,
+                color: c === 0 ? '#f43f5e' : '#a855f7',
+                delay: (c + 1) * 0.035,
+                age: 0,
+                dur: 0.32,
+                claw: true,
+                inkDrops: [],
+              });
+            }
           }
         }
       } else if (ev.kind === 'toast') {
@@ -374,17 +676,147 @@ class SwordSpireIllustratedApp {
     }
   }
 
+  private triggerHitstop(sec: number): void {
+    this.hitstopTimer = Math.max(this.hitstopTimer, sec);
+  }
+
   private spawnSwordStreak(
     x0: number,
     y0: number,
     x1: number,
     y1: number,
     color: string,
-    dur: number
+    element: SwordElement,
+    dur: number,
+    delay = 0,
+    scale = 1.05,
+    heavy = false
   ): void {
-    const cx = (x0 + x1) * 0.5;
-    const cy = Math.min(y0, y1) - 90 - Math.random() * 65;
-    this.streaks.push({ x0, y0, cx, cy, x1, y1, color, age: 0, dur, trail: [] });
+    const cx = (x0 + x1) * 0.5 + (Math.random() - 0.5) * 60;
+    const cy = Math.min(y0, y1) - 85 - Math.random() * 85;
+    this.streaks.push({ x0, y0, cx, cy, x1, y1, color, element, delay, age: 0, dur, scale, heavy });
+  }
+
+  private spawnCrescentSlash(
+    x: number,
+    y: number,
+    angle: number,
+    radius: number,
+    thickness: number,
+    sweepRad: number,
+    color: string,
+    dur: number,
+    delay = 0
+  ): void {
+    const inkDrops: { ang: number; dist: number; r: number }[] = [];
+    for (let i = 0; i < 7; i++) {
+      inkDrops.push({
+        ang: (Math.random() - 0.5) * sweepRad * 1.85,
+        dist: radius + 4 + Math.random() * 26,
+        r: 2.2 + Math.random() * 4.8,
+      });
+    }
+    this.slashes.push({
+      x,
+      y,
+      angle,
+      radius,
+      thickness,
+      sweepRad,
+      color,
+      delay,
+      age: 0,
+      dur,
+      inkDrops,
+    });
+  }
+
+  private spawnLightningBolt(hitX: number, hitY: number, color: string, delay = 0): void {
+    const buildChain = (
+      sx: number,
+      sy: number,
+      ex: number,
+      ey: number,
+      segs: number,
+      jitter: number
+    ): { x: number; y: number }[] => {
+      const pts: { x: number; y: number }[] = [];
+      for (let i = 0; i <= segs; i++) {
+        const t = i / segs;
+        const j = i === 0 || i === segs ? 0 : (Math.random() - 0.5) * jitter;
+        pts.push({ x: sx + (ex - sx) * t + j, y: sy + (ey - sy) * t });
+      }
+      return pts;
+    };
+
+    const main = buildChain(hitX + (Math.random() - 0.5) * 90, -25, hitX, hitY, 11, 56);
+    const b1Start = main[4];
+    const b2Start = main[7];
+    const branch1 = buildChain(b1Start.x, b1Start.y, b1Start.x - 68, b1Start.y + 115, 5, 28);
+    const branch2 = buildChain(b2Start.x, b2Start.y, b2Start.x + 64, b2Start.y + 95, 5, 26);
+
+    this.bolts.push({
+      chains: [main, branch1, branch2],
+      hitX,
+      hitY,
+      color,
+      delay,
+      age: 0,
+      dur: 0.34,
+    });
+  }
+
+  private spawnImpactBurst(
+    x: number,
+    y: number,
+    color: string,
+    element: SwordElement,
+    heavy: boolean,
+    delay = 0
+  ): void {
+    this.flares.push({
+      x,
+      y,
+      size: heavy ? 118 : 78,
+      angle: (Math.random() - 0.5) * 0.7,
+      color,
+      delay,
+      age: 0,
+      dur: 0.2,
+    });
+    this.rings.push({
+      x,
+      y,
+      r0: 14,
+      r1: heavy ? 138 : 88,
+      scaleY: 1,
+      color,
+      bagua: heavy,
+      delay,
+      age: 0,
+      dur: heavy ? 0.38 : 0.28,
+    });
+
+    const count = heavy ? 24 : 13;
+    const pKind: ImpactSpark['kind'] =
+      element === 'fire' ? 'ember' : element === 'ice' ? 'shard' : 'spark';
+
+    for (let i = 0; i < count; i++) {
+      const ang = (i / count) * Math.PI * 2 + (Math.random() - 0.5) * 0.45;
+      const spd = (heavy ? 240 : 165) + Math.random() * 310;
+      this.sparks.push({
+        x,
+        y,
+        vx: Math.cos(ang) * spd,
+        vy: Math.sin(ang) * spd - (pKind === 'ember' ? 110 : 40),
+        color: i % 3 === 0 ? '#fffbeb' : color,
+        size: (heavy ? 3.6 : 2.5) + Math.random() * 2.8,
+        delay,
+        age: 0,
+        dur: 0.32 + Math.random() * 0.26,
+        kind: pKind,
+      });
+    }
   }
 
   private spawnPopup(
@@ -1166,12 +1598,20 @@ class SwordSpireIllustratedApp {
   // 60 FPS Illustrated Standee Motion & Ink-and-Gold Canvas VFX Loop
   // =========================================================================
   private tick(ts: number): void {
-    const dt = Math.min(0.05, Math.max(0.001, (ts - this.lastTs) / 1000));
+    const realDt = Math.min(0.05, Math.max(0.001, (ts - this.lastTs) / 1000));
     this.lastTs = ts;
-    this.clockSec += dt;
+
+    // Asymmetric Sakurai Hit-Stop: decays in real time so shake & UI never stall!
+    let simScale = 1.0;
+    if (this.hitstopTimer > 0) {
+      this.hitstopTimer = Math.max(0, this.hitstopTimer - realDt);
+      simScale = 0.12;
+    }
+    const dt = realDt * simScale;
+    this.clockSec += realDt;
 
     if (this.toastTimer > 0) {
-      this.toastTimer -= dt;
+      this.toastTimer -= realDt;
       if (this.toastTimer <= 0) {
         document.getElementById('toast-banner')!.classList.add('hidden');
       }
@@ -1181,16 +1621,16 @@ class SwordSpireIllustratedApp {
     const isBoss = inCombat && this.engine.enemies.some((e) => e.isBoss && e.hp > 0);
     this.audio.stepBgm(inCombat, isBoss);
 
-    // Subtle Stage Parallax Breath + Trauma² Impact Shake
+    // Subtle Stage Parallax Breath + Trauma² Impact Shake (decays in realDt!)
     let shakeX = Math.sin(this.clockSec * 0.6) * 4;
     let shakeY = Math.cos(this.clockSec * 0.45) * 3;
     let shakeRot = 0;
     if (this.trauma > 0) {
-      this.trauma = Math.max(0, this.trauma - 2.1 * dt);
+      this.trauma = Math.max(0, this.trauma - 1.95 * realDt);
       const sh = this.trauma * this.trauma;
-      const sx = Math.sin(this.clockSec * 47) * 16 * sh;
-      const sy = Math.cos(this.clockSec * 53) * 12 * sh;
-      shakeRot = Math.sin(this.clockSec * 39) * 1.1 * sh;
+      const sx = Math.sin(this.clockSec * 51) * 18 * sh;
+      const sy = Math.cos(this.clockSec * 59) * 13 * sh;
+      shakeRot = Math.sin(this.clockSec * 37) * 1.25 * sh;
       this.stageRoot.style.transform = `translate3d(${sx.toFixed(1)}px, ${sy.toFixed(1)}px, 0) rotate(${shakeRot.toFixed(2)}deg)`;
     } else {
       this.stageRoot.style.transform = '';
@@ -1287,8 +1727,8 @@ class SwordSpireIllustratedApp {
       });
     }
 
-    // 3. Foreground Ink-and-Gold VFX: Formation Pillars, Flying Sword Streaks, Slashes, Bezier Curve & Popups
-    this.renderForegroundVfx(dt);
+    // 3. Foreground 7-Channel Ink-and-Gold VFX
+    this.renderForegroundVfx(realDt);
 
     requestAnimationFrame((nextTs) => this.tick(nextTs));
   }
@@ -1452,21 +1892,87 @@ class SwordSpireIllustratedApp {
 
   private renderForegroundVfx(dt: number): void {
     const ctx = this.fxCtx;
+    const bCtx = this.backCtx;
 
-    // 1. Five-Element Heaven-Splitting Formation Pillars
+    // 0. Hero Dash Golden-Jade Afterimage Ghosts (on backCtx behind standees!)
+    for (let i = this.ghosts.length - 1; i >= 0; i--) {
+      const g = this.ghosts[i];
+      g.age += dt;
+      const u = Math.min(1, g.age / g.dur);
+      if (g.img.complete && g.img.naturalWidth > 0) {
+        const aspect = g.img.naturalWidth / g.img.naturalHeight;
+        const gh = g.h * (1 + u * 0.06);
+        const gw = gh * aspect;
+        bCtx.save();
+        bCtx.globalAlpha = (1 - u) * 0.42;
+        bCtx.filter = 'sepia(1) hue-rotate(115deg) saturate(2.5) brightness(1.35)';
+        bCtx.drawImage(g.img, g.x - gw * 0.5 - u * 18, g.y - gh, gw, gh);
+        bCtx.restore();
+      }
+      if (u >= 1) this.ghosts.splice(i, 1);
+    }
+
+    // 1. Expanding Perspective Shockwaves & Bagua Rune Seals
+    for (let i = this.rings.length - 1; i >= 0; i--) {
+      const rg = this.rings[i];
+      if (rg.delay > 0) {
+        rg.delay -= dt;
+        continue;
+      }
+      rg.age += dt;
+      const u = Math.min(1, rg.age / rg.dur);
+      const ease = 1 - Math.pow(1 - u, 3);
+      const rad = rg.r0 + (rg.r1 - rg.r0) * ease;
+      const alpha = Math.pow(1 - u, 1.35);
+
+      ctx.save();
+      ctx.translate(rg.x, rg.y);
+      ctx.scale(1, rg.scaleY);
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = alpha * 0.85;
+      ctx.strokeStyle = rg.color;
+      ctx.shadowColor = rg.color;
+      ctx.shadowBlur = 18;
+      ctx.lineWidth = Math.max(1.2, (1 - u) * 6.5);
+      ctx.beginPath();
+      ctx.arc(0, 0, rad, 0, Math.PI * 2);
+      ctx.stroke();
+
+      if (rg.bagua) {
+        ctx.rotate(u * 1.2);
+        ctx.strokeStyle = '#fffbeb';
+        ctx.lineWidth = Math.max(1, (1 - u) * 2.5);
+        ctx.beginPath();
+        for (let k = 0; k < 8; k++) {
+          const a = (k / 8) * Math.PI * 2;
+          const px = Math.cos(a) * rad * 0.78;
+          const py = Math.sin(a) * rad * 0.78;
+          if (k === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        ctx.stroke();
+      }
+      ctx.restore();
+
+      if (u >= 1) this.rings.splice(i, 1);
+    }
+
+    // 2. Five-Element Heaven-Splitting Formation Pillars
     for (let i = this.pillars.length - 1; i >= 0; i--) {
       const p = this.pillars[i];
       p.age += dt;
       const u = Math.min(1, p.age / p.dur);
-      const alpha = 1 - u;
-      const pw = (1 - u * 0.55) * 96;
+      const alpha = Math.pow(1 - u, 1.2);
+      const pw = (1 - u * 0.58) * 104;
       ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
       ctx.globalAlpha = alpha;
       const g = ctx.createLinearGradient(p.x - pw, 0, p.x + pw, 0);
       g.addColorStop(0, 'transparent');
-      g.addColorStop(0.3, p.color);
+      g.addColorStop(0.28, p.color);
       g.addColorStop(0.5, '#ffffff');
-      g.addColorStop(0.7, p.color);
+      g.addColorStop(0.72, p.color);
       g.addColorStop(1, 'transparent');
       ctx.fillStyle = g;
       ctx.fillRect(p.x - pw, 0, pw * 2, p.y);
@@ -1474,59 +1980,302 @@ class SwordSpireIllustratedApp {
       if (u >= 1) this.pillars.splice(i, 1);
     }
 
-    // 2. Streaking Bezier Flying Swords + Ribbon Trails
-    for (let i = this.streaks.length - 1; i >= 0; i--) {
-      const s = this.streaks[i];
-      s.age += dt;
-      const u = Math.min(1, s.age / s.dur);
-      const inv = 1 - u;
-      const x = inv * inv * s.x0 + 2 * inv * u * s.cx + u * u * s.x1;
-      const y = inv * inv * s.y0 + 2 * inv * u * s.cy + u * u * s.y1;
-      s.trail.push({ x, y });
-      if (s.trail.length > 9) s.trail.shift();
+    // 3. Heavenly Purple-Gold Lightning Bolts (九天紫霄落雷)
+    for (let i = this.bolts.length - 1; i >= 0; i--) {
+      const b = this.bolts[i];
+      if (b.delay > 0) {
+        b.delay -= dt;
+        continue;
+      }
+      b.age += dt;
+      const u = Math.min(1, b.age / b.dur);
+      const alpha = Math.pow(1 - u, 1.4);
 
       ctx.save();
-      for (let t = 1; t < s.trail.length; t++) {
-        const ratio = t / s.trail.length;
-        ctx.strokeStyle = s.color;
-        ctx.globalAlpha = ratio * 0.85;
-        ctx.lineWidth = ratio * 7;
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'bevel';
+
+      b.chains.forEach((chain, cIdx) => {
+        const wMul = cIdx === 0 ? 1 : 0.48;
+        // Outer violet-gold plasma halo
+        ctx.globalAlpha = alpha * 0.9;
+        ctx.strokeStyle = b.color;
+        ctx.shadowColor = b.color;
+        ctx.shadowBlur = 24;
+        ctx.lineWidth = 11 * wMul * (1 - u * 0.65);
         ctx.beginPath();
-        ctx.moveTo(s.trail[t - 1].x, s.trail[t - 1].y);
-        ctx.lineTo(s.trail[t].x, s.trail[t].y);
+        chain.forEach((pt, k) => (k === 0 ? ctx.moveTo(pt.x, pt.y) : ctx.lineTo(pt.x, pt.y)));
         ctx.stroke();
-      }
-      const tx = 2 * inv * (s.cx - s.x0) + 2 * u * (s.x1 - s.cx);
-      const ty = 2 * inv * (s.cy - s.y0) + 2 * u * (s.y1 - s.cy);
-      const ang = Math.atan2(ty, tx) + Math.PI * 0.5;
-      ctx.globalAlpha = 1;
-      this.drawIllustratedJian(ctx, x, y, ang, 'metal', 1.05);
+
+        // Blazing white-hot lightning core
+        ctx.globalAlpha = alpha;
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 3.2 * wMul * (1 - u * 0.5);
+        ctx.stroke();
+      });
+
+      // Strike flash orb
+      const flashR = 56 * (1 - u);
+      const fg = ctx.createRadialGradient(b.hitX, b.hitY, 0, b.hitX, b.hitY, flashR);
+      fg.addColorStop(0, '#ffffff');
+      fg.addColorStop(0.4, b.color);
+      fg.addColorStop(1, 'transparent');
+      ctx.globalAlpha = alpha * 0.85;
+      ctx.fillStyle = fg;
+      ctx.beginPath();
+      ctx.arc(b.hitX, b.hitY, flashR, 0, Math.PI * 2);
+      ctx.fill();
       ctx.restore();
 
-      if (u >= 1) this.streaks.splice(i, 1);
+      if (u >= 1) this.bolts.splice(i, 1);
     }
 
-    // 3. Calligraphic Ink-and-Gold Crescent Sword Slashes
+    // 4. Sub-Stepped Elemental Flying Swords + Tapered Silk Sword-Qi Ribbons
+    for (let i = this.streaks.length - 1; i >= 0; i--) {
+      const s = this.streaks[i];
+      if (s.delay > 0) {
+        s.delay -= dt;
+        continue;
+      }
+      s.age += dt;
+      const uRaw = Math.min(1, s.age / s.dur);
+      const uPos = 0.32 * uRaw + 0.68 * uRaw * uRaw; // Accelerating sword lunge!
+      const uTail = Math.max(0, uPos - 0.46);
+      const steps = 16;
+
+      const evalBez = (t: number) => {
+        const inv = 1 - t;
+        const x = inv * inv * s.x0 + 2 * inv * t * s.cx + t * t * s.x1;
+        const y = inv * inv * s.y0 + 2 * inv * t * s.cy + t * t * s.y1;
+        const tx = 2 * inv * (s.cx - s.x0) + 2 * t * (s.x1 - s.cx);
+        const ty = 2 * inv * (s.cy - s.y0) + 2 * t * (s.y1 - s.cy);
+        const len = Math.hypot(tx, ty) || 1;
+        return { x, y, nx: -ty / len, ny: tx / len, ang: Math.atan2(ty, tx) + Math.PI * 0.5 };
+      };
+
+      const leftPts: { x: number; y: number }[] = [];
+      const rightPts: { x: number; y: number }[] = [];
+      const coreLeft: { x: number; y: number }[] = [];
+      const coreRight: { x: number; y: number }[] = [];
+      const maxHalfW = (s.heavy ? 13 : 9) * s.scale;
+
+      for (let k = 0; k <= steps; k++) {
+        const frac = k / steps;
+        const t = uTail + (uPos - uTail) * frac;
+        const p = evalBez(t);
+        const hw = maxHalfW * Math.pow(frac, 1.45);
+        leftPts.push({ x: p.x + p.nx * hw, y: p.y + p.ny * hw });
+        rightPts.push({ x: p.x - p.nx * hw, y: p.y - p.ny * hw });
+        coreLeft.push({ x: p.x + p.nx * hw * 0.38, y: p.y + p.ny * hw * 0.38 });
+        coreRight.push({ x: p.x - p.nx * hw * 0.38, y: p.y - p.ny * hw * 0.38 });
+      }
+
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.fillStyle = s.color;
+      ctx.shadowColor = s.color;
+      ctx.shadowBlur = 20;
+      ctx.globalAlpha = 0.82;
+      ctx.beginPath();
+      leftPts.forEach((pt, idx) => (idx === 0 ? ctx.moveTo(pt.x, pt.y) : ctx.lineTo(pt.x, pt.y)));
+      for (let idx = rightPts.length - 1; idx >= 0; idx--) {
+        ctx.lineTo(rightPts[idx].x, rightPts[idx].y);
+      }
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.fillStyle = '#fffbeb';
+      ctx.globalAlpha = 0.92;
+      ctx.beginPath();
+      coreLeft.forEach((pt, idx) => (idx === 0 ? ctx.moveTo(pt.x, pt.y) : ctx.lineTo(pt.x, pt.y)));
+      for (let idx = coreRight.length - 1; idx >= 0; idx--) {
+        ctx.lineTo(coreRight[idx].x, coreRight[idx].y);
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+
+      const head = evalBez(uPos);
+      this.drawIllustratedJian(ctx, head.x, head.y, head.ang, s.element, s.scale);
+
+      if (uRaw >= 1) {
+        this.spawnImpactBurst(s.x1, s.y1, s.color, s.element, s.heavy, 0);
+        this.streaks.splice(i, 1);
+      }
+    }
+
+    // 5. Dual-Tapered Calligraphic Ink-and-Gold Crescent Sword-Qi & Demon Claws
     for (let i = this.slashes.length - 1; i >= 0; i--) {
       const sl = this.slashes[i];
+      if (sl.delay > 0) {
+        sl.delay -= dt;
+        continue;
+      }
       sl.age += dt;
       const u = Math.min(1, sl.age / sl.dur);
+      const alpha = Math.pow(1 - u, 1.15);
+      const whip = 1 - Math.pow(1 - Math.min(1, u / 0.34), 3);
+      const aStart = -sl.sweepRad;
+      const aEnd = -sl.sweepRad + sl.sweepRad * 2 * whip;
+      const curR = sl.radius * (0.82 + 0.28 * (1 - Math.pow(1 - u, 2)));
+      const curThick = sl.thickness * (1 - Math.pow(u, 1.55));
+      const segs = 24;
+
+      const fillCrescent = (radOffset: number, thickMul: number) => {
+        ctx.beginPath();
+        for (let k = 0; k <= segs; k++) {
+          const s = k / segs;
+          const a = aStart + (aEnd - aStart) * s;
+          const rOut = curR + radOffset;
+          const px = Math.cos(a) * rOut;
+          const py = Math.sin(a) * rOut;
+          if (k === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+        for (let k = segs; k >= 0; k--) {
+          const s = k / segs;
+          const a = aStart + (aEnd - aStart) * s;
+          const profile = Math.pow(Math.sin(s * Math.PI), 1.35);
+          const jag = sl.claw ? Math.sin(k * 3.7) * 5 * profile : 0;
+          const rIn = curR + radOffset - curThick * thickMul * profile + jag;
+          ctx.lineTo(Math.cos(a) * rIn, Math.sin(a) * rIn);
+        }
+        ctx.closePath();
+        ctx.fill();
+      };
+
       ctx.save();
       ctx.translate(sl.x, sl.y);
       ctx.rotate(sl.angle);
-      ctx.globalAlpha = 1 - u;
-      ctx.strokeStyle = '#ffffff';
+
+      // Layer A: Dark Xuan-Paper Ink-Wash Contrast Backing & Flying Ink Droplets!
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.globalAlpha = alpha * 0.72;
+      ctx.fillStyle = '#050711';
+      fillCrescent(5, 1.38);
+
+      for (const d of sl.inkDrops) {
+        const dr = d.dist + u * 26;
+        ctx.beginPath();
+        ctx.arc(Math.cos(d.ang) * dr, Math.sin(d.ang) * dr, d.r * (1 - u), 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Layer B: Blazing Additive Elemental Sword-Qi Halo
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = alpha * 0.95;
+      ctx.fillStyle = sl.color;
       ctx.shadowColor = sl.color;
-      ctx.shadowBlur = 22;
-      ctx.lineWidth = (1 - u) * 12;
-      ctx.beginPath();
-      ctx.arc(0, 0, sl.radius * (0.7 + u * 0.35), -0.85, 0.85);
-      ctx.stroke();
+      ctx.shadowBlur = 26;
+      fillCrescent(0, 1.0);
+
+      // Layer C: White-Hot Forged Blade Edge Core
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = '#fffef2';
+      fillCrescent(-1, 0.44);
+
       ctx.restore();
+
       if (u >= 1) this.slashes.splice(i, 1);
     }
 
-    // 4. Luminous Bezier Targeting Curve on Hovered Single-Target Card
+    // 6. 4-Pointed Sword-Tip Cross-Star Glints (十字寒芒星闪)
+    for (let i = this.flares.length - 1; i >= 0; i--) {
+      const fl = this.flares[i];
+      if (fl.delay > 0) {
+        fl.delay -= dt;
+        continue;
+      }
+      fl.age += dt;
+      const u = Math.min(1, fl.age / fl.dur);
+      const scale = (1 - u * 0.5) * Math.sin(Math.min(1, u * 3.2) * (Math.PI * 0.5));
+      const longR = fl.size * scale;
+      const shortR = Math.max(2.5, fl.size * 0.085 * scale);
+
+      ctx.save();
+      ctx.translate(fl.x, fl.y);
+      ctx.rotate(fl.angle);
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = 1 - u;
+      ctx.fillStyle = '#ffffff';
+      ctx.shadowColor = fl.color;
+      ctx.shadowBlur = 22;
+
+      for (let arm = 0; arm < 2; arm++) {
+        ctx.beginPath();
+        ctx.moveTo(-longR, 0);
+        ctx.quadraticCurveTo(0, -shortR, longR, 0);
+        ctx.quadraticCurveTo(0, shortR, -longR, 0);
+        ctx.closePath();
+        ctx.fill();
+        ctx.rotate(Math.PI * 0.5);
+      }
+      ctx.restore();
+
+      if (u >= 1) this.flares.splice(i, 1);
+    }
+
+    // 7. Tamahagane Forged-Sword Sparks, Lotus Fire Embers & Frost Shards
+    for (let i = this.sparks.length - 1; i >= 0; i--) {
+      const sp = this.sparks[i];
+      if (sp.delay > 0) {
+        sp.delay -= dt;
+        continue;
+      }
+      sp.age += dt;
+      const u = Math.min(1, sp.age / sp.dur);
+
+      if (sp.kind === 'spark') {
+        sp.vx *= Math.exp(-4.2 * dt);
+        sp.vy = sp.vy * Math.exp(-3.0 * dt) + 420 * dt;
+      } else if (sp.kind === 'ember') {
+        sp.vx += Math.sin(this.clockSec * 14 + sp.y * 0.05) * 180 * dt;
+        sp.vy -= 140 * dt;
+      } else {
+        sp.vx *= Math.exp(-3.5 * dt);
+        sp.vy *= Math.exp(-3.5 * dt);
+      }
+      sp.x += sp.vx * dt;
+      sp.y += sp.vy * dt;
+
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = 1 - u;
+      ctx.strokeStyle = sp.color;
+      ctx.fillStyle = sp.color;
+      ctx.shadowColor = sp.color;
+      ctx.shadowBlur = 10;
+
+      if (sp.kind === 'spark') {
+        ctx.lineWidth = Math.max(1, sp.size * (1 - u * 0.6));
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(sp.x - sp.vx * 0.036, sp.y - sp.vy * 0.036);
+        ctx.lineTo(sp.x, sp.y);
+        ctx.stroke();
+      } else if (sp.kind === 'shard') {
+        ctx.translate(sp.x, sp.y);
+        ctx.rotate(sp.age * 9);
+        const r = sp.size * 1.6 * (1 - u * 0.5);
+        ctx.beginPath();
+        ctx.moveTo(0, -r);
+        ctx.lineTo(r * 0.55, 0);
+        ctx.lineTo(0, r);
+        ctx.lineTo(-r * 0.55, 0);
+        ctx.closePath();
+        ctx.fill();
+      } else {
+        ctx.beginPath();
+        ctx.arc(sp.x, sp.y, sp.size * (1 - u * 0.65), 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+
+      if (u >= 1) this.sparks.splice(i, 1);
+    }
+
+    // 8. Luminous Bezier Targeting Curve on Hovered Single-Target Card
     if (
       this.engine.runPhase === 'combat' &&
       this.hoveredCardEl &&
@@ -1557,23 +2306,33 @@ class SwordSpireIllustratedApp {
       ctx.restore();
     }
 
-    // 5. Parabolic Calligraphic Floating Damage / Block Popups
+    // 9. Calligraphic Brush Damage / Block Popups with Spring Scale Overshoot
     for (let i = this.popups.length - 1; i >= 0; i--) {
       const ft = this.popups[i];
       ft.age += dt;
-      ft.vy += 175 * dt;
+      ft.vy += 185 * dt;
       ft.x += ft.vx * dt;
       ft.y += ft.vy * dt;
-      const alpha = Math.max(0, 1 - ft.age / ft.dur);
+      const u = Math.min(1, ft.age / ft.dur);
+      const alpha = Math.max(0, 1 - Math.pow(u, 1.6));
+      const popScale =
+        u < 0.16 ? 0.65 + (u / 0.16) * (ft.big ? 0.75 : 0.45) : 1 + Math.max(0, 0.34 - u) * (ft.big ? 1.1 : 0.4);
+
       ctx.save();
+      ctx.translate(ft.x, ft.y);
+      ctx.scale(popScale, popScale);
       ctx.globalAlpha = alpha;
-      ctx.font = `900 ${ft.big ? 28 : 19}px "STKaiti", "KaiTi", "Microsoft YaHei", serif`;
+      ctx.font = ft.big
+        ? `400 34px "Ma Shan Zheng", "STKaiti", "KaiTi", serif`
+        : `900 20px "Noto Serif SC", "Songti SC", serif`;
       ctx.textAlign = 'center';
-      ctx.strokeStyle = '#070a14';
-      ctx.lineWidth = 4.5;
-      ctx.strokeText(ft.text, ft.x, ft.y);
+      ctx.strokeStyle = '#050711';
+      ctx.lineWidth = ft.big ? 6 : 4.5;
+      ctx.strokeText(ft.text, 0, 0);
       ctx.fillStyle = ft.color;
-      ctx.fillText(ft.text, ft.x, ft.y);
+      ctx.shadowColor = ft.color;
+      ctx.shadowBlur = ft.big ? 14 : 6;
+      ctx.fillText(ft.text, 0, 0);
       ctx.restore();
       if (ft.age >= ft.dur) this.popups.splice(i, 1);
     }

@@ -78,8 +78,17 @@ export interface XianxiaEventSpec {
 }
 
 export type VisualEvent =
-  | { kind: 'hero_slash'; targetIdx: number; colorHex: number; heavy?: boolean }
-  | { kind: 'hero_cast'; colorHex: number }
+  | {
+      kind: 'hero_slash';
+      cardId: string;
+      targetIdx: number;
+      isAoe: boolean;
+      hits: number;
+      element?: SwordElement;
+      colorHex: number;
+      heavy?: boolean;
+    }
+  | { kind: 'hero_cast'; cardId: string; element?: SwordElement; colorHex: number }
   | { kind: 'sword_fly'; element: SwordElement; targetIdx: number; isEvoke: boolean }
   | { kind: 'formation'; name: string; colorHex: number }
   | { kind: 'damage_enemy'; targetIdx: number; amount: number; blocked: number; colorHex: number }
@@ -572,23 +581,40 @@ export class SwordSpireEngine {
     this.hand.splice(handIdx, 1);
     this.limbo.push(card);
 
+    const ops = this.getCardOps(card);
+
     if (def.type === 'attack') {
       this.attacksPlayedCount++;
       this.attacksPlayedThisTurn++;
+      const dmgOp = ops.find((o) => o.op === 'damage') as
+        | { op: 'damage'; amount: number; hits?: number; target?: 'single' | 'all' | 'random' }
+        | undefined;
+      const hits = dmgOp?.hits || 1;
+      const isAoe = def.target === 'all' || dmgOp?.target === 'all';
+      const defaultHex = def.art.includes('crimson')
+        ? 0xf43f5e
+        : def.id === 'shield_slam'
+          ? 0xfef08a
+          : 0xfbbf24;
       this.visualEvents.push({
         kind: 'hero_slash',
+        cardId: def.id,
         targetIdx: Math.max(0, resolvedTarget),
-        colorHex: def.elementTag ? SWORD_ELEMENTS[def.elementTag].colorHex : 0xfbbf24,
-        heavy: cost >= 2,
+        isAoe,
+        hits,
+        element: def.elementTag,
+        colorHex: def.elementTag ? SWORD_ELEMENTS[def.elementTag].colorHex : defaultHex,
+        heavy: cost >= 2 || def.id === 'blood_slash' || def.id === 'shield_slam',
       });
     } else {
       this.visualEvents.push({
         kind: 'hero_cast',
+        cardId: def.id,
+        element: def.elementTag,
         colorHex: def.elementTag ? SWORD_ELEMENTS[def.elementTag].colorHex : 0x38bdf8,
       });
     }
 
-    const ops = this.getCardOps(card);
     for (const op of ops) {
       this.pushEffect(op, resolvedTarget);
     }
@@ -598,7 +624,7 @@ export class SwordSpireEngine {
       const lowIdx = this.lowestHpEnemyIdx();
       if (lowIdx >= 0) {
         this.pushEffect({ op: 'damage', amount: 7 }, lowIdx);
-        this.visualEvents.push({ kind: 'toast', text: '✨【昊天照妖镜】射出金光追击！' });
+        this.visualEvents.push({ kind: 'toast', text: '【昊天照妖镜】射出金光追击！' });
       }
     }
 
@@ -772,7 +798,7 @@ export class SwordSpireEngine {
           this.enemies[tIdx].burn *= 2;
           this.visualEvents.push({
             kind: 'toast',
-            text: `🔥 三昧真火催动！【丹火】翻倍至 ${this.enemies[tIdx].burn} 层！`,
+            text: `三昧真火催动 ·【丹火】翻倍至 ${this.enemies[tIdx].burn} 层！`,
           });
         }
         break;
