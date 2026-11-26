@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="theme-color" content="#070b16" />
+    <title>斩妖录：剑匣问天 3D | SWORD BOX: ASCENSION</title>
+  </head>
+  <body>
+    <canvas id="arena-canvas"></canvas>
+    <canvas id="fx-canvas"></canvas>
+
+    <!-- Persistent Top Immortal Status Bar -->
+    <header id="top-bar" class="hidden">
+      <div class="top-left">
+        <span id="top-hero-name" class="gold-title">凌霄 · 蜀山剑修</span>
+        <span id="top-floor-badge" class="pill-tag">第一重天 · 1/15 劫</span>
+        <span id="top-hp" class="stat-chip hp">❤️ 80/80</span>
+        <span id="top-gold" class="stat-chip gold">💰 99 灵石</span>
+      </div>
+      <div id="relic-strip" class="relic-strip"></div>
+      <div class="top-right">
+        <button id="btn-open-deck" class="hud-btn" title="查看牌库 [D]">📜 牌库 (<span id="deck-count">10</span>)</button>
+        <button id="btn-Audio-mute" class="hud-btn" title="静音开关 [M]">🎵</button>
+        <button id="btn-give-up" class="hud-btn subtle" title="重返仙门">重开</button>
+      </div>
+    </header>
+
+    <!-- Toast Notification Banner -->
+    <div id="toast-banner" class="toast-banner hidden"></div>
+
+    <!-- 3D Combat Overlay: Actor Plates, Intents, Sword Box & Holographic Card Hand -->
+    <section id="combat-ui" class="hidden">
+      <div id="actor-overlays"></div>
+
+      <!-- Floating Sword Box & Five-Element Formation Guide -->
+      <aside id="sword-box-panel">
+        <div class="sb-header">
+          <span>🗡️ 悬空剑匣 (<span id="sb-count">0/5</span>)</span>
+          <span class="sb-sub">满槽自动出鞘 · 双系共鸣结阵</span>
+        </div>
+        <div id="sb-slots" class="sb-slots"></div>
+        <div class="sb-recipes">
+          <span>🔥+⚡雷火破绽</span>
+          <span>❄️+⚔️冰金凝罡</span>
+          <span>🌿+🔥木火回灵</span>
+          <span>⚡+❄️雷冰虚弱</span>
+        </div>
+      </aside>
+
+      <!-- Bottom Qi Orb, Pile Counters, Holographic Hand & End Turn -->
+      <div class="combat-bottom">
+        <div class="pile-col left">
+          <div id="qi-orb" class="qi-orb" title="当前灵力 / 每回合上限">
+            <span id="qi-text">3/3</span>
+            <small>灵力</small>
+          </div>
+          <button id="btn-draw-pile" class="pile-btn" title="点击查看抽牌堆">
+            🎴 抽牌 <strong id="draw-count">5</strong>
+          </button>
+        </div>
+
+        <div id="hand-fan" class="hand-fan"></div>
+
+        <div class="pile-col right">
+          <button id="btn-end-turn" class="end-turn-btn">
+            <span>结束回合</span>
+            <small>[E / Space]</small>
+          </button>
+          <div class="discard-row">
+            <button id="btn-discard-pile" class="pile-btn" title="点击查看弃牌堆">
+              ♻️ 弃牌 <strong id="discard-count">0</strong>
+            </button>
+            <button id="btn-exhaust-pile" class="pile-btn subtle" title="本战已消耗牌">
+              🔥 消耗 <strong id="exhaust-count">0</strong>
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 1. Title Screen: Choose Immortal Lineage -->
+    <section id="title-screen" class="screen-modal">
+      <div class="modal-card wide">
+        <div class="realm-eyebrow">3D XIANXIA ROGUELIKE DECKBUILDER · 杀戮尖塔风御剑构筑</div>
+        <h1 class="main-logo">斩妖录：剑匣问天 <span>3D</span></h1>
+        <p class="subtitle">
+          悬空五灵剑匣 · 双系自动结阵 · 洞府淬剑删牌 · 三重天十五劫登仙路
+        </p>
+        <div id="hero-grid" class="hero-grid"></div>
+        <div class="title-actions">
+          <button id="btn-start-run" class="primary-cta">⚔️ 御剑入劫 · 踏入第一重天 [Space]</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. Branching 15-Floor Spire Star-Map -->
+    <section id="map-screen" class="screen-modal hidden">
+      <div class="modal-card map-box">
+        <div class="modal-head">
+          <div>
+            <span class="realm-eyebrow" id="map-realm-tag">第一重天 · 锁妖残殿</span>
+            <h2>🗺️ 三界登仙星图 · 选择下一处历练节点</h2>
+          </div>
+          <div class="map-legend">
+            <span>⚔️群妖</span>
+            <span>👹凶煞精英(掉法宝)</span>
+            <span>🔥丹炉(回血/升牌+)</span>
+            <span>🏮仙坊(买宝/删牌)</span>
+            <span>☯️奇遇</span>
+            <span>☠️镇界魔尊</span>
+          </div>
+        </div>
+        <div id="map-scroll" class="map-scroll">
+          <svg id="map-svg" class="map-svg"></svg>
+          <div id="map-nodes" class="map-nodes"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. Post-Combat Card Draft & Spoils -->
+    <section id="reward-screen" class="screen-modal hidden">
+      <div class="modal-card wide">
+        <div class="realm-eyebrow">VICTORY SPOILS · 斩妖夺宝</div>
+        <h2>✨ 妖氛涤荡 · 择一剑诀纳入牌库</h2>
+        <div id="reward-summary" class="reward-summary"></div>
+        <div id="reward-cards" class="draft-grid"></div>
+        <div class="modal-foot">
+          <button id="btn-skip-reward" class="secondary-btn">🌊 略过选牌 · 保持精简牌库 (+15 灵石)</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4. Immortal Cave Rest / Sword Forge -->
+    <section id="rest-screen" class="screen-modal hidden">
+      <div class="modal-card wide">
+        <div class="realm-eyebrow">IMMORTAL FURNACE · 洞府丹炉</div>
+        <h2>🔥 灵脉洞府 · 调息或淬剑升阶</h2>
+        <div class="rest-actions">
+          <button id="btn-rest-heal" class="rest-choice-card">
+            <div class="rc-icon">🧘</div>
+            <div class="rc-title">打坐吐纳 · 固本培元</div>
+            <div class="rc-desc" id="rest-heal-desc">立即回复 35% 最大气血 (+28 HP)</div>
+          </button>
+          <div class="rest-forge-note">
+            <strong>⚒️ 或者点击下方任意未升阶卡牌，直接淬炼进化为【+】极品剑诀：</strong>
+          </div>
+        </div>
+        <div id="forge-grid" class="deck-grid"></div>
+      </div>
+    </section>
+
+    <!-- 5. Cloud Merchant Shop (Buy Cards, Relics, Purge Card!) -->
+    <section id="shop-screen" class="screen-modal hidden">
+      <div class="modal-card wide">
+        <div class="modal-head">
+          <div>
+            <span class="realm-eyebrow">CLOUD MERCHANT · 云游仙坊</span>
+            <h2>🏮 仙坊奇珍 · 购置法宝或洗髓删牌</h2>
+          </div>
+          <button id="btn-leave-shop" class="primary-cta compact">继续登仙 ➜</button>
+        </div>
+        <div id="shop-services" class="shop-services"></div>
+        <div id="shop-cards" class="draft-grid shop-grid"></div>
+        <div id="shop-purge-wrap" class="hidden">
+          <h3 class="sub-heading">🌊 请点击要从牌库永久移除的冗杂卡牌：</h3>
+          <div id="shop-purge-grid" class="deck-grid"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6. Mystery Xianxia Event -->
+    <section id="event-screen" class="screen-modal hidden">
+      <div class="modal-card">
+        <div class="realm-eyebrow">MYSTERY ENCOUNTER · 秘境奇遇</div>
+        <h2 id="event-title">☯️ 太古残剑碑</h2>
+        <p id="event-desc" class="event-desc"></p>
+        <div id="event-choices" class="event-choices"></div>
+      </div>
+    </section>
+
+    <!-- 7. Deck / Pile Inspector Modal -->
+    <section id="deck-modal" class="screen-modal hidden">
+      <div class="modal-card wide">
+        <div class="modal-head">
+          <h2 id="deck-modal-title">📜 牌库总览</h2>
+          <button id="btn-close-deck" class="secondary-btn">关闭 [Esc]</button>
+        </div>
+        <div id="deck-modal-grid" class="deck-grid"></div>
+      </div>
+    </section>
+
+    <!-- 8. Run Victory / Gameover Result Modal -->
+    <section id="result-screen" class="screen-modal hidden">
+      <div class="modal-card">
+        <div class="realm-eyebrow" id="result-eyebrow">IMMORTAL ASCENSION</div>
+        <h1 id="result-title" class="main-logo">剑破九霄 · 羽化登仙！</h1>
+        <div id="result-stats" class="result-stats"></div>
+        <div class="title-actions">
+          <button id="btn-restart-run" class="primary-cta">🔄 再入轮回 · 开启新仙途</button>
+        </div>
+      </div>
+    </section>
+
+    <script type="module" src="./src/main.ts"></script>
+  </body>
+</html>
