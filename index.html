@@ -7,12 +7,18 @@
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
     />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="theme-color" content="#070b16" />
-    <title>斩妖录：剑匣问天 3D | SWORD BOX: ASCENSION</title>
+    <meta name="theme-color" content="#070a14" />
+    <title>斩妖录：剑匣问天 · 国风重彩插画版</title>
   </head>
   <body>
-    <canvas id="arena-canvas"></canvas>
-    <canvas id="fx-canvas"></canvas>
+    <!-- 2.5D Multi-Layer Illustrated Xianxia Stage -->
+    <div id="stage-root">
+      <div id="stage-bg"></div>
+      <div id="stage-vignette"></div>
+      <canvas id="back-fx-canvas"></canvas>
+      <div id="stage-standees"></div>
+      <canvas id="fx-canvas"></canvas>
+    </div>
 
     <!-- Persistent Top Immortal Status Bar -->
     <header id="top-bar" class="hidden">
@@ -33,7 +39,7 @@
     <!-- Toast Notification Banner -->
     <div id="toast-banner" class="toast-banner hidden"></div>
 
-    <!-- 3D Combat Overlay: Actor Plates, Intents, Sword Box & Holographic Card Hand -->
+    <!-- Combat Overlay: Actor Plates, Intents, Sword Box & Gilded Illustrated Hand -->
     <section id="combat-ui" class="hidden">
       <div id="actor-overlays"></div>
 
@@ -41,7 +47,7 @@
       <aside id="sword-box-panel">
         <div class="sb-header">
           <span>🗡️ 悬空剑匣 (<span id="sb-count">0/5</span>)</span>
-          <span class="sb-sub">满槽自动出鞘 · 双系共鸣结阵</span>
+          <span class="sb-sub">满槽出鞘 · 双系共鸣结阵</span>
         </div>
         <div id="sb-slots" class="sb-slots"></div>
         <div class="sb-recipes">
@@ -52,7 +58,7 @@
         </div>
       </aside>
 
-      <!-- Bottom Qi Orb, Pile Counters, Holographic Hand & End Turn -->
+      <!-- Bottom Qi Orb, Pile Counters, Illustrated Hand & End Turn -->
       <div class="combat-bottom">
         <div class="pile-col left">
           <div id="qi-orb" class="qi-orb" title="当前灵力 / 每回合上限">
@@ -86,8 +92,8 @@
     <!-- 1. Title Screen: Choose Immortal Lineage -->
     <section id="title-screen" class="screen-modal">
       <div class="modal-card wide">
-        <div class="realm-eyebrow">3D XIANXIA ROGUELIKE DECKBUILDER · 杀戮尖塔风御剑构筑</div>
-        <h1 class="main-logo">斩妖录：剑匣问天 <span>3D</span></h1>
+        <div class="realm-eyebrow">DARK-GOLD XIANXIA DECKBUILDER · 暗黑鎏金国风杀戮尖塔</div>
+        <h1 class="main-logo">斩妖录：剑匣问天</h1>
         <p class="subtitle">
           悬空五灵剑匣 · 双系自动结阵 · 洞府淬剑删牌 · 三重天十五劫登仙路
         </p>
@@ -108,7 +114,7 @@
           </div>
           <div class="map-legend">
             <span>⚔️群妖</span>
-            <span>👹凶煞精英(掉法宝)</span>
+            <span>👹凶煞妖王(掉法宝)</span>
             <span>🔥丹炉(回血/升牌+)</span>
             <span>🏮仙坊(买宝/删牌)</span>
             <span>☯️奇遇</span>
@@ -154,7 +160,7 @@
       </div>
     </section>
 
-    <!-- 5. Cloud Merchant Shop (Buy Cards, Relics, Purge Card!) -->
+    <!-- 5. Cloud Merchant Shop -->
     <section id="shop-screen" class="screen-modal hidden">
       <div class="modal-card wide">
         <div class="modal-head">
